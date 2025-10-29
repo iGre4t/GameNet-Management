@@ -63,6 +63,8 @@
         <header class="topbar">
           <button id="sidebarToggle" class="icon-btn" title="کوچک/بزرگ کردن سایدبار" aria-label="کوچک/بزرگ کردن سایدبار">≡</button>
           <h2 id="page-title">خانه</h2>
+          <div class="spacer"></div>
+          <div id="live-clock" class="clock" aria-live="polite"></div>
         </header>
 
         <section id="tab-home" class="tab active">
@@ -151,6 +153,16 @@
                 <!-- Default prices of branch -->
                 <div class="card" style="margin-bottom:12px;">
                   <h3>قیمت‌های پیشفرض شعبه</h3>
+                  <div class="table-header">
+                    <div></div>
+                    <div class="period-toolbar">
+                      <label class="field" style="margin:0;">
+                        <span></span>
+                        <select id="period-select"></select>
+                      </label>
+                      <button id="manage-periods" type="button" class="btn">تنظیم بازه‌های زمانی</button>
+                    </div>
+                  </div>
                   <form id="default-prices-form" class="form grid">
                     <label class="field">
                       <span>تک دسته (ریال/ساعت)</span>
@@ -328,6 +340,25 @@
           </div>
           <p id="system-form-msg" class="hint"></p>
         </form>
+      </div>
+    </div>
+
+    <!-- Periods Modal -->
+    <div id="periods-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="periods-modal-title">
+      <div class="modal-card" style="max-width:640px;">
+        <h3 id="periods-modal-title">تنظیم بازه‌های زمانی (۲۴ ساعته)</h3>
+        <div class="form">
+          <div class="hint">بین ۱ تا ۵ بازه تعریف کنید؛ کل ۲۴ ساعت را بدون هم‌پوشانی و بدون فاصله پوشش دهید.</div>
+          <div id="periods-list" class="periods-list"></div>
+          <div style="display:flex; gap:8px;">
+            <button id="add-period" type="button" class="btn">+ افزودن بازه</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="periods-cancel">انصراف</button>
+          <button type="button" class="btn primary" id="periods-save">ذخیره</button>
+        </div>
+        <p id="periods-msg" class="hint"></p>
       </div>
     </div>
 

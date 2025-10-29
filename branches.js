@@ -10,6 +10,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let branches = loadBranches();
   let currentBranchId = null;
+  let currentPeriodId = null;
+
+  // Period helpers
+  const DAY_MIN = 24*60;
+  const toMin = (hhmm) => {
+    if (!hhmm || typeof hhmm !== 'string') return 0;
+    const parts = hhmm.split(':');
+    const h = parseInt(parts[0]||'0',10);
+    const m = parseInt(parts[1]||'0',10);
+    let t = (isNaN(h)?0:h)*60 + (isNaN(m)?0:m);
+    if (!Number.isFinite(t)) t = 0;
+    return Math.max(0, Math.min(DAY_MIN, t));
+  };
+  const toHHMM = (min) => {
+    const x = Math.max(0, Math.min(DAY_MIN, Number(min)||0));
+    const hh = String(Math.floor(x/60)).padStart(2,'0');
+    const mm = String(x%60).padStart(2,'0');
+    return `${hh}:${mm}`;
+  };
+  const labelPeriod = (p) => `${toHHMM(p.start)} - ${toHHMM(p.end)}`;
+  const ensureBranchPeriods = (b) => {
+    if (!b.periods || !Array.isArray(b.periods) || b.periods.length === 0){
+      const defaults = b.defaultPrices || zeroPrices();
+      b.periods = [{ id: genId(), start: 0, end: DAY_MIN, defaultPrices: defaults }];
+    }
+    return b;
+  };
 
   const setTitle = (t) => { const el = qs('#page-title'); if (el) el.textContent = t; };
 
@@ -89,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (m && p) { m.classList.add('hidden'); p.classList.remove('hidden'); }
     const t = qs('#branch-page-title');
     if (t) t.textContent = `شعبه: ${branch.name}`;
+    renderPeriodSelect(branch);
     fillDefaultPricesForm(branch);
     renderSystemsTable(branch);
   };
@@ -99,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const input = qs('#branch-name');
     const name = input.value.trim();
     if (!name) return;
-    const b = { id: genId(), name, systems: [] };
+    const b = { id: genId(), name, systems: [], periods: [{ id: genId(), start: 0, end: 24*60, defaultPrices: zeroPrices() }] };
     branches.push(b);
     saveBranches(branches);
     input.value = '';
@@ -122,8 +150,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!name) return;
     const branch = branches.find(b => b.id === currentBranchId);
     if (!branch) return;
+    ensureBranchPeriods(branch);
+    const pid = currentPeriodId || branch.periods[0]?.id;
     // new systems start with default prices (no custom override)
-    const sys = { id: genId(), name, prices: null };
+    const sys = { id: genId(), name, pricesByPeriod: {} };
     branch.systems = branch.systems || [];
     branch.systems.push(sys);
     saveBranches(branches);
@@ -139,7 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const branch = branches.find(b => b.id === branchId);
     const sys = branch?.systems?.find(s => s.id === systemId);
     if (!sys) return;
-    const eff = getEffectivePrices(branch, sys);
+    const pid = currentPeriodId || (ensureBranchPeriods(branch).periods[0]?.id);
+    const eff = getEffectivePrices(branch, sys, pid);
     qs('#system-name').value = sys.name || '';
     qs('#price-1p').value = formatPrice(eff.p1);
     qs('#price-2p').value = formatPrice(eff.p2);
@@ -149,6 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
     qs('#price-film').value = formatPrice(eff.film);
     form.dataset.branchId = branchId;
     form.dataset.systemId = systemId;
+    form.dataset.periodId = pid;
     m.classList.remove('hidden');
   };
 
@@ -170,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const branch = branches.find(b => b.id === branchId);
     const sys = branch?.systems?.find(s => s.id === systemId);
     if (!branch || !sys) return;
+    const periodId = form.dataset.periodId;
     sys.name = qs('#system-name').value.trim() || sys.name;
     // Validate non-empty and parse
     const values = [ '#price-1p', '#price-2p', '#price-3p', '#price-4p', '#price-birthday', '#price-film' ]
@@ -184,12 +217,10 @@ document.addEventListener('DOMContentLoaded', () => {
       birthday: toNum(qs('#price-birthday').value),
       film: toNum(qs('#price-film').value)
     };
-    // If equal to default, clear override to use default
-    if (pricesEqual(newPrices, branch.defaultPrices || zeroPrices())) {
-      sys.prices = null;
-    } else {
-      sys.prices = newPrices;
-    }
+    // If equal to selected period default, clear override
+    const def = (ensureBranchPeriods(branch).periods.find(p => p.id === periodId)?.defaultPrices) || zeroPrices();
+    sys.pricesByPeriod = sys.pricesByPeriod || {};
+    if (pricesEqual(newPrices, def)) { delete sys.pricesByPeriod[periodId]; } else { sys.pricesByPeriod[periodId] = newPrices; }
     saveBranches(branches);
     closeSystemModal();
     if (currentBranchId === branch.id) renderSystemsTable(branch);
@@ -209,10 +240,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const formatPrice = (n) => (Number.isFinite(n) ? n : 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   const parsePrice = (s) => { const n = parseInt(String(s||'').replace(/,/g,''), 10); return isNaN(n) ? 0 : n; };
   const pricesEqual = (a,b) => ['p1','p2','p3','p4','birthday','film'].every(k => Number(a[k]||0) === Number(b[k]||0));
-  const getEffectivePrices = (branch, sys) => (sys.prices == null ? (branch.defaultPrices || zeroPrices()) : sys.prices);
+  const getEffectivePrices = (branch, sys, periodId) => {
+    ensureBranchPeriods(branch);
+    const def = branch.periods.find(p => p.id === periodId)?.defaultPrices || zeroPrices();
+    const ov = sys.pricesByPeriod && sys.pricesByPeriod[periodId];
+    return ov ? ov : def;
+  };
 
   const fillDefaultPricesForm = (branch) => {
-    const d = branch.defaultPrices || zeroPrices();
+    ensureBranchPeriods(branch);
+    if (!currentPeriodId) currentPeriodId = branch.periods[0]?.id || null;
+    const d = branch.periods.find(p => p.id === currentPeriodId)?.defaultPrices || zeroPrices();
     const map = { 'def-1p': d.p1, 'def-2p': d.p2, 'def-3p': d.p3, 'def-4p': d.p4, 'def-birthday': d.birthday, 'def-film': d.film };
     Object.entries(map).forEach(([id,val]) => { const el = qs('#'+id); if (el) el.value = formatPrice(val); });
   };
@@ -220,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const branchPageInit = () => {
     const branch = branches.find(b => b.id === currentBranchId);
     if (!branch) return;
+    renderPeriodSelect(branch);
     fillDefaultPricesForm(branch);
     renderSystemsTable(branch);
   };
@@ -236,7 +275,12 @@ document.addEventListener('DOMContentLoaded', () => {
       birthday: parsePrice(qs('#def-birthday').value),
       film: parsePrice(qs('#def-film').value)
     };
-    branch.defaultPrices = d;
+    (function(){
+      ensureBranchPeriods(branch);
+      const pid = currentPeriodId || branch.periods[0]?.id;
+      const pp = branch.periods.find(p => p.id === pid);
+      if (pp) pp.defaultPrices = d;
+    })();
     saveBranches(branches);
     const msg = qs('#default-prices-msg');
     if (msg) { msg.textContent = 'ذخیره شد'; setTimeout(() => msg.textContent = '', 1500); }
@@ -271,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
       birthday: parsePrice(qs('#bulk-birthday').value),
       film: parsePrice(qs('#bulk-film').value)
     };
-    const effs = selected.map(id => getEffectivePrices(branch, branch.systems.find(s => s.id === id)));
+    const effs = selected.map(id => getEffectivePrices(branch, branch.systems.find(s => s.id === id), pid));
     const allSame = effs.every(p => pricesEqual(p, effs[0]));
     if (!allSame) {
       const ok = confirm('سیستم های انتخاب شده دارای قیمت / کاربری متفاوتی می باشند اگر از تغییرات مطمئن هستید ثبت کنید');
@@ -281,7 +325,9 @@ document.addEventListener('DOMContentLoaded', () => {
     selected.forEach(id => {
       const sys = branch.systems.find(s => s.id === id);
       if (!sys) return;
-      if (pricesEqual(targetPrices, branch.defaultPrices || zeroPrices())) sys.prices = null; else sys.prices = targetPrices;
+      const def = branch.periods.find(p => p.id === pid)?.defaultPrices || zeroPrices();
+      sys.pricesByPeriod = sys.pricesByPeriod || {};
+      if (pricesEqual(targetPrices, def)) delete sys.pricesByPeriod[pid]; else sys.pricesByPeriod[pid] = targetPrices;
     });
     saveBranches(branches);
     renderSystemsTable(branch);
@@ -292,4 +338,92 @@ document.addEventListener('DOMContentLoaded', () => {
   // Override by wrapping existing function if accessible
   // If not accessible due to scoping, call branchPageInit in the places we navigate
   // Call on initial manage->branch switch via click handlers below
+  
+  // ---- Period select + modal ----
+  function renderPeriodSelect(branch){
+    ensureBranchPeriods(branch);
+    const sel = qs('#period-select');
+    if (!sel) return;
+    sel.innerHTML = '';
+    branch.periods.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${('0'+Math.floor(p.start/60)).slice(-2)}:${('0'+(p.start%60)).slice(-2)} - ${('0'+Math.floor(p.end/60)).slice(-2)}:${('0'+(p.end%60)).slice(-2)}`;
+      sel.appendChild(opt);
+    });
+    if (!currentPeriodId) currentPeriodId = branch.periods[0]?.id || null;
+    sel.value = currentPeriodId || branch.periods[0]?.id || '';
+    sel.onchange = () => {
+      currentPeriodId = sel.value;
+      fillDefaultPricesForm(branch);
+      renderSystemsTable(branch);
+    };
+    const btn = qs('#manage-periods');
+    if (btn){ btn.onclick = () => openPeriodsModal(branch.id); }
+  }
+
+  function openPeriodsModal(branchId){
+    const branch = branches.find(b => b.id === branchId);
+    if (!branch) return;
+    ensureBranchPeriods(branch);
+    const m = qs('#periods-modal');
+    const list = qs('#periods-list');
+    if (!m || !list) return;
+    list.innerHTML = '';
+    function addRow(start, end){
+      const row = document.createElement('div');
+      row.className = 'period-row';
+      row.innerHTML = `
+        <label class="field"><span>شروع</span><input type="time" class="p-start" required /></label>
+        <label class="field"><span>پایان</span><input type="time" class="p-end" required /></label>
+        <button type="button" class="btn p-remove">×</button>`;
+      row.querySelector('.p-start').value = `${('0'+Math.floor(start/60)).slice(-2)}:${('0'+(start%60)).slice(-2)}`;
+      row.querySelector('.p-end').value = `${('0'+Math.floor(end/60)).slice(-2)}:${('0'+(end%60)).slice(-2)}`;
+      row.querySelector('.p-remove').onclick = () => { row.remove(); };
+      list.appendChild(row);
+    }
+    branch.periods.forEach(p => addRow(p.start, p.end));
+    const addEl = qs('#add-period');
+    if (addEl) addEl.onclick = () => {
+      const rows = list.querySelectorAll('.period-row');
+      if (rows.length >= 5) return;
+      let start = 0;
+      if (rows.length){
+        const last = rows[rows.length-1];
+        const s = last.querySelector('.p-end').value.split(':');
+        start = (parseInt(s[0],10)||0)*60 + (parseInt(s[1],10)||0);
+      }
+      addRow(start, 24*60);
+    };
+    const cancelEl = qs('#periods-cancel');
+    if (cancelEl) cancelEl.onclick = () => { m.classList.add('hidden'); };
+    const saveEl = qs('#periods-save');
+    if (saveEl) saveEl.onclick = () => {
+      const rows = [...list.querySelectorAll('.period-row')];
+      const msg = qs('#periods-msg'); if (msg) msg.textContent='';
+      if (rows.length < 1 || rows.length > 5){ if (msg) msg.textContent='تعداد بازه باید بین ۱ تا ۵ باشد.'; return; }
+      const items = rows.map(r => {
+        const s = r.querySelector('.p-start').value.split(':'), e = r.querySelector('.p-end').value.split(':');
+        const st = (parseInt(s[0],10)||0)*60 + (parseInt(s[1],10)||0);
+        const en = (parseInt(e[0],10)||0)*60 + (parseInt(e[1],10)||0);
+        return { start: st, end: en };
+      });
+      for (const it of items){ if (!(it.start < it.end)) { if (msg) msg.textContent='هر بازه باید شروع کمتر از پایان داشته باشد.'; return; } }
+      items.sort((a,b)=> a.start-b.start);
+      if (items[0].start !== 0){ if (msg) msg.textContent='بازه اول باید از 00:00 شروع شود.'; return; }
+      for (let i=1;i<items.length;i++){
+        if (items[i-1].end !== items[i].start){ if (msg) msg.textContent='بازه‌ها باید پشت‌سرهم و بدون فاصله باشند.'; return; }
+      }
+      if (items[items.length-1].end !== 24*60){ if (msg) msg.textContent='آخرین بازه باید در 24:00 پایان یابد.'; return; }
+      branch.periods = items.map(it => ({ id: genId(), start: it.start, end: it.end, defaultPrices: zeroPrices() }));
+      (branch.systems||[]).forEach(s => { s.pricesByPeriod = {}; delete s.prices; });
+      saveBranches(branches);
+      currentPeriodId = branch.periods[0]?.id || null;
+      renderPeriodSelect(branch);
+      fillDefaultPricesForm(branch);
+      renderSystemsTable(branch);
+      m.classList.add('hidden');
+    };
+    m.classList.remove('hidden');
+  }
 });

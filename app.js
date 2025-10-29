@@ -84,6 +84,38 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tabs
   qsa('.nav-item').forEach(btn => btn.addEventListener('click', () => setActiveTab(btn.dataset.tab)));
 
+  // Live clock based on configurable offset (default Tehran +03:30)
+  const TIME_OFFSET_KEY = 'gamenet_time_offset_min';
+  function getOffsetMinutes(){
+    const raw = localStorage.getItem(TIME_OFFSET_KEY);
+    const n = raw == null ? NaN : Number(raw);
+    if (!Number.isFinite(n)) return 210; // default Tehran +03:30
+    return n;
+  }
+  function formatOffset(min){
+    const sign = min >= 0 ? '+' : '-';
+    const abs = Math.abs(min);
+    const hh = Math.floor(abs / 60).toString().padStart(2,'0');
+    const mm = (abs % 60).toString().padStart(2,'0');
+    return `GMT${sign}${hh}:${mm}`;
+  }
+  function getAppDate(){
+    const now = new Date();
+    const utcMs = now.getTime() + now.getTimezoneOffset()*60000;
+    const off = getOffsetMinutes();
+    return new Date(utcMs + off*60000);
+  }
+  function renderClock(){
+    const el = qs('#live-clock'); if (!el) return;
+    const d = getAppDate();
+    const hh = d.getHours().toString().padStart(2,'0');
+    const mm = d.getMinutes().toString().padStart(2,'0');
+    const ss = d.getSeconds().toString().padStart(2,'0');
+    el.textContent = `${hh}:${mm}:${ss} ${formatOffset(getOffsetMinutes())}`;
+  }
+  renderClock();
+  setInterval(renderClock, 1000);
+
   // Sidebar toggle (compact)
   qs('#sidebarToggle')?.addEventListener('click', () => {
     const app = qs('#app-view');
@@ -266,6 +298,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button id="open-favicon-modal" class="btn">${STR_SET_CHANGE_FAVICON}</button>
               </div>
             </div>
+            <label class="field">
+              <span>\u0627\u062E\u062A\u0644\u0627\u0641 \u0633\u0627\u0639\u062A \u0645\u062D\u0644\u06CC (\u00B1\u0633\u0627\u0639\u062A:\u062F\u0642\u06CC\u0642\u0647)</span>
+              <input id="time-offset" type="text" inputmode="text" placeholder="+03:30" />
+            </label>
           </div>
         </div>`;
       const content = document.querySelector('.content');
@@ -328,6 +364,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const fav = localStorage.getItem(FAVICON_KEY);
     if (fav) applyFavicon(fav);
 
+    // Initialize time-offset input
+    const to = document.getElementById('time-offset');
+    if (to){
+      const min = (function(){ const raw = localStorage.getItem(TIME_OFFSET_KEY); const n = raw==null?NaN:Number(raw); return Number.isFinite(n)?n:210; })();
+      const sign = min >= 0 ? '+' : '-';
+      const abs = Math.abs(min);
+      const hh = String(Math.floor(abs/60)).padStart(2,'0');
+      const mm = String(abs%60).padStart(2,'0');
+      to.value = `${sign}${hh}:${mm}`;
+    }
     // Hook title input
     document.addEventListener('input', (e) => {
       const t = e.target;
@@ -335,6 +381,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const val = String(t.value || '').trim();
         localStorage.setItem(SITE_TITLE_KEY, val);
         applyTitle(val);
+      }
+      if (t && t.id === 'time-offset'){
+        const raw = String(t.value || '').trim();
+        // Accept "+HH:MM" or "-HH:MM" or plain minutes
+        let min = NaN;
+        const m = raw.match(/^([+-]?)(\d{1,2})(?::(\d{2}))?$/);
+        if (m){
+          const sign = m[1] === '-' ? -1 : 1;
+          const hh = parseInt(m[2],10);
+          const mm = m[3] ? parseInt(m[3],10) : 0;
+          if (hh>=0 && hh<=14 && mm>=0 && mm<60) min = sign*(hh*60+mm);
+        } else if (/^[+-]?\d+$/.test(raw)) {
+          min = parseInt(raw,10);
+        }
+        if (Number.isFinite(min)){
+          localStorage.setItem(TIME_OFFSET_KEY, String(min));
+          renderClock();
+        }
       }
     });
 
@@ -391,3 +455,236 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initLogic); else initLogic();
 })();
+// --- Users & Permissions extensions ---
+const USERS_KEY = 'gamenet_users';
+const PERMISSION_TABS = {
+  home: { label: 'خانه', parts: ['نمایش داشبورد'] },
+  users: { label: 'کاربران', parts: ['مشاهده', 'افزودن', 'ویرایش', 'حذف', 'ویرایش مجوز'] },
+  branches: { label: 'شعب', parts: ['مشاهده', 'افزودن/ویرایش سیستم', 'تعرفه'] },
+  settings: { label: 'تنظیمات', parts: ['مشاهده', 'امنیت', 'ظاهر'] }
+};
+
+function loadUsers(){
+  try {
+    const raw = localStorage.getItem(USERS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  const seeded = [
+    { id: 'admin', code: '00000', first: 'ادمین', last: 'سیستم', phone: '', password: '', active: true, email: 'admin@example.com', permissions: { tabs: {}, parts: {} } },
+    { id: genId(), code: genCode([]), first: 'کاربر', last: 'یک', phone: '09123456789', password: '1234', active: true, email: '', permissions: { tabs: {}, parts: {} } }
+  ];
+  saveUsers(seeded);
+  return seeded;
+}
+
+function saveUsers(arr){
+  localStorage.setItem(USERS_KEY, JSON.stringify(arr));
+}
+
+function genId(){ return Math.random().toString(36).slice(2, 10); }
+function genCode(existing){
+  const used = new Set(existing.map(u => u.code));
+  for (let i=0;i<10000;i++){
+    const c = Math.floor(Math.random()*100000).toString().padStart(5,'0');
+    if (!used.has(c)) return c;
+  }
+  return (Date.now()%100000).toString().padStart(5,'0');
+}
+
+// Override KPI and user rendering to use localStorage-backed users
+function updateKpis(){
+  const users = loadUsers().filter(u => !u.email);
+  const total = users.length;
+  const active = users.filter(u => u.active).length;
+  qs('#kpi-users') && (qs('#kpi-users').textContent = total);
+  qs('#kpi-active') && (qs('#kpi-active').textContent = active);
+}
+
+function renderUsers(){
+  const tbody = qs('#users-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const headRow = qs('#tab-users thead tr');
+  if (headRow){ headRow.innerHTML = '<th>کد ۵ رقمی</th><th>نام و نام خانوادگی</th><th>تلفن/نام‌کاربری</th><th>وضعیت</th><th>اقدامات</th>'; }
+  const users = loadUsers().filter(u => !u.email);
+  users.forEach(u => {
+    const tr = document.createElement('tr');
+    const full = `${u.first || ''} ${u.last || ''}`.trim();
+    const status = u.active ? 'فعال' : 'غیرفعال';
+    tr.innerHTML = `<td>${u.code || ''}</td><td>${full}</td><td>${u.phone || ''}</td><td>${status}</td><td>
+      <button class="btn" data-act="edit" data-id="${u.id}">ویرایش</button>
+      <button class="btn" data-act="perm" data-id="${u.id}">مجوزها</button>
+    </td>`;
+    tbody.appendChild(tr);
+  });
+  qsa('#users-body button[data-act]')
+    .forEach(b => b.addEventListener('click', () => {
+      const id = b.getAttribute('data-id');
+      const act = b.getAttribute('data-act');
+      if (act === 'edit') openUserModalX(id);
+      if (act === 'perm') openPermModal(id);
+    }));
+}
+
+// Build modals and handle user CRUD and permissions
+let CURRENT_EDIT_USER = null;
+let CURRENT_PERM_USER = null;
+
+function ensureUserAndPermModals(){
+  // Upgrade user modal content
+  const um = qs('#user-modal');
+  if (um){
+    const card = um.querySelector('.modal-card');
+    if (card){
+      card.innerHTML = `
+        <h3 id="user-modal-title">افزودن کاربر</h3>
+        <form id="user-form" class="form">
+          <div class="grid full">
+            <label class="field">
+              <span>نام</span>
+              <input id="user-first" type="text" required />
+            </label>
+            <label class="field">
+              <span>نام خانوادگی</span>
+              <input id="user-last" type="text" required />
+            </label>
+          </div>
+          <div class="grid full">
+            <label class="field">
+              <span>تلفن/نام‌کاربری (11 رقم)</span>
+              <input id="user-phone" type="text" inputmode="numeric" pattern="^\\d{11}$" placeholder="09xxxxxxxxx" required />
+            </label>
+            <label class="field">
+              <span>کد ۵ رقمی (غیرقابل ویرایش)</span>
+              <input id="user-code" type="text" inputmode="numeric" pattern="^\\d{5}$" readonly />
+            </label>
+          </div>
+          <label class="field">
+            <span>گذرواژه</span>
+            <input id="user-pass" type="password" minlength="4" placeholder="******" />
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="user-cancel">انصراف</button>
+            <button type="submit" class="btn primary" id="user-save">ذخیره</button>
+          </div>
+          <p id="user-form-msg" class="hint"></p>
+        </form>`;
+    }
+    qs('#user-cancel')?.addEventListener('click', () => qs('#user-modal')?.classList.add('hidden'));
+    qs('#user-form')?.addEventListener('submit', onUserFormSubmitX);
+  }
+  // Create permission modal if missing
+  if (!qs('#perm-modal')){
+    const modal = document.createElement('div');
+    modal.id = 'perm-modal'; modal.className = 'modal hidden';
+    modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true');
+    modal.innerHTML = `
+      <div class="modal-card large">
+        <h3 id="perm-modal-title">مجوزهای کاربر</h3>
+        <div class="sub-layout">
+          <aside class="sub-sidebar">
+            <div class="sub-header">تب‌ها</div>
+            <nav id="perm-subnav" class="sub-nav"></nav>
+          </aside>
+          <div class="sub-content">
+            <div id="perm-content"></div>
+            <div class="modal-actions">
+              <button type="button" class="btn" id="perm-cancel">انصراف</button>
+              <button type="button" class="btn primary" id="perm-save">ذخیره</button>
+            </div>
+            <p id="perm-msg" class="hint"></p>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  qs('#perm-cancel')?.addEventListener('click', () => qs('#perm-modal')?.classList.add('hidden'));
+  qs('#perm-save')?.addEventListener('click', savePermsFromModal);
+}
+
+function openUserModalX(id){
+  const users = loadUsers();
+  const isEdit = !!id; CURRENT_EDIT_USER = id || null;
+  const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? 'ویرایش کاربر' : 'افزودن کاربر';
+  const f = qs('#user-first'), l = qs('#user-last'), p = qs('#user-phone'), c = qs('#user-code'), pw = qs('#user-pass');
+  const msg = qs('#user-form-msg'); if (msg) msg.textContent = '';
+  if (isEdit){
+    const u = users.find(x => x.id === id); if (!u) return;
+    f.value = u.first || ''; l.value = u.last || ''; p.value = u.phone || '';
+    c.value = u.code || ''; pw.value = '';
+  } else {
+    f.value = ''; l.value = ''; p.value = '';
+    c.value = genCode(users); pw.value = '';
+  }
+  qs('#user-modal')?.classList.remove('hidden');
+}
+
+function onUserFormSubmitX(e){
+  e.preventDefault();
+  const first = qs('#user-first').value.trim();
+  const last = qs('#user-last').value.trim();
+  const phone = qs('#user-phone').value.trim();
+  const code = qs('#user-code').value.trim();
+  const pass = qs('#user-pass').value;
+  const msg = qs('#user-form-msg');
+  if (!first || !last){ msg && (msg.textContent = 'نام و نام خانوادگی الزامی است.'); return; }
+  if (!/^\d{11}$/.test(phone)){ msg && (msg.textContent = 'شماره تلفن باید ۱۱ رقم باشد.'); return; }
+  if (!/^\d{5}$/.test(code)){ msg && (msg.textContent = 'کد باید ۵ رقمی باشد.'); return; }
+  const users = loadUsers();
+  if (CURRENT_EDIT_USER){
+    const i = users.findIndex(u => u.id === CURRENT_EDIT_USER); if (i === -1) return;
+    const old = users[i]; users[i] = { ...old, first, last, phone, password: pass ? pass : old.password };
+  } else {
+    users.push({ id: genId(), code, first, last, phone, password: pass || '', active: true, email: '', permissions: { tabs: {}, parts: {} } });
+  }
+  saveUsers(users); renderUsers(); updateKpis();
+  qs('#user-modal')?.classList.add('hidden');
+}
+
+function openPermModal(id){
+  const users = loadUsers(); const u = users.find(x => x.id === id); if (!u) return;
+  CURRENT_PERM_USER = id; const sub = qs('#perm-subnav'); const con = qs('#perm-content');
+  if (!sub || !con) return; sub.innerHTML = ''; con.innerHTML = '';
+  const perms = normalizePermissions(u.permissions);
+  Object.entries(PERMISSION_TABS).forEach(([key, def], idx) => {
+    const b = document.createElement('button'); b.className = 'sub-item' + (idx===0?' active':''); b.dataset.tab = key; b.textContent = def.label; b.addEventListener('click', () => switchPermTab(key)); sub.appendChild(b);
+    const pane = document.createElement('div'); pane.className = 'perm-pane' + (idx===0?'':' hidden'); pane.dataset.tab = key;
+    const chkId = `perm-tab-${key}`; const selId = `perm-parts-${key}`;
+    const hasTab = !!perms.tabs[key];
+    pane.innerHTML = `
+      <div class="perm-row">
+        <label class="chk"><input type="checkbox" id="${chkId}" ${hasTab?'checked':''}/> دسترسی به تب «${def.label}»</label>
+        <label class="field">
+          <span>مجوز بخش‌ها</span>
+          <select id="${selId}" multiple></select>
+        </label>
+      </div>`;
+    con.appendChild(pane);
+    const sel = pane.querySelector('select');
+    def.parts.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; if (Array.isArray(perms.parts[key]) && perms.parts[key].includes(p)) o.selected = true; sel.appendChild(o); });
+  });
+  qs('#perm-modal')?.classList.remove('hidden');
+}
+
+function switchPermTab(key){
+  qsa('#perm-subnav .sub-item').forEach(b => b.classList.toggle('active', b.dataset.tab === key));
+  qsa('#perm-content .perm-pane').forEach(p => p.classList.toggle('hidden', p.dataset.tab !== key));
+}
+
+function normalizePermissions(perms){
+  const p = perms && typeof perms === 'object' ? perms : {}; return { tabs: p.tabs || {}, parts: p.parts || {} };
+}
+
+function savePermsFromModal(){
+  if (!CURRENT_PERM_USER) return; const users = loadUsers(); const i = users.findIndex(u => u.id === CURRENT_PERM_USER); if (i === -1) return;
+  const tabs = {}; const parts = {}; Object.keys(PERMISSION_TABS).forEach(k => { const c = qs(`#perm-tab-${k}`); const s = qs(`#perm-parts-${k}`); tabs[k] = !!(c && c.checked); parts[k] = s ? [...s.options].filter(o => o.selected).map(o => o.value) : []; });
+  users[i].permissions = { tabs, parts }; saveUsers(users); qs('#perm-modal')?.classList.add('hidden');
+}
+
+// Wire up after base script listeners
+document.addEventListener('DOMContentLoaded', () => {
+  try { ensureUserAndPermModals(); } catch {}
+  const addBtn = qs('#add-user'); addBtn && addBtn.addEventListener('click', () => openUserModalX());
+  // Initial render with extended schema
+  try { renderUsers(); updateKpis(); } catch {}
+});
