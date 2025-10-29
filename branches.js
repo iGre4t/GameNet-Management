@@ -359,7 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderSystemsTable(branch);
     };
     const btn = qs('#manage-periods');
-    if (btn){ btn.onclick = () => openPeriodsModal(branch.id); }
+    if (btn){ btn.onclick = () => openPeriodsModalTimeline(branch.id); }
   }
 
   function openPeriodsModal(branchId){
@@ -424,6 +424,165 @@ document.addEventListener('DOMContentLoaded', () => {
       renderSystemsTable(branch);
       m.classList.add('hidden');
     };
+    m.classList.remove('hidden');
+  }
+
+  // New timeline-based periods editor
+  function openPeriodsModalTimeline(branchId){
+    const branch = branches.find(b => b.id === branchId);
+    if (!branch) return;
+    ensureBranchPeriods(branch);
+    const m = qs('#periods-modal');
+    if (!m) return;
+    const list = qs('#periods-list');
+    if (list) { list.innerHTML = ''; list.classList.add('hidden'); }
+
+    // Build local boundaries from existing periods
+    const ps = [...(branch.periods||[])].sort((a,b)=> a.start-b.start);
+    let boundaries = [0];
+    ps.forEach(p => boundaries.push(Math.max(0, Math.min(DAY_MIN, Number(p.end)||0))));
+    boundaries[0] = 0;
+    boundaries[boundaries.length-1] = DAY_MIN;
+
+    // Inject timeline container if missing
+    let tl = qs('#periods-timeline', m);
+    if (!tl){
+      tl = document.createElement('div');
+      tl.id = 'periods-timeline';
+      tl.className = 'timeline';
+      tl.innerHTML = '<div class="timeline-scale"></div><div class="timeline-track"></div>';
+      const formEl = m.querySelector('.form');
+      if (formEl) formEl.insertBefore(tl, formEl.lastElementChild);
+    }
+    const scaleEl = tl.querySelector('.timeline-scale');
+    const trackEl = tl.querySelector('.timeline-track');
+
+    const renderScale = () => {
+      if (!scaleEl) return;
+      scaleEl.innerHTML = '';
+      for (let h=0; h<=24; h+=2){
+        const pct = (h/24)*100;
+        const tick = document.createElement('div');
+        tick.className = 'tick';
+        tick.style.left = pct + '%';
+        scaleEl.appendChild(tick);
+        const lab = document.createElement('div');
+        lab.className = 'label';
+        lab.style.left = pct + '%';
+        lab.textContent = String(h).padStart(2,'0') + ':00';
+        scaleEl.appendChild(lab);
+      }
+    };
+
+    const minutesToPct = (min) => (Math.max(0, Math.min(DAY_MIN, min))/DAY_MIN)*100;
+    const pctToMinutes = (pct) => Math.round((pct/100)*DAY_MIN);
+
+    let dragging = null; // { index, rect }
+    let highlightPair = null; // [startHandleIndex, endHandleIndex]
+
+    const render = () => {
+      renderScale();
+      if (!trackEl) return;
+      trackEl.innerHTML = '';
+      // segments
+      for (let i=0; i<boundaries.length-1; i++){
+        const start = boundaries[i], end = boundaries[i+1];
+        const seg = document.createElement('div');
+        seg.className = 'timeline-segment' + (i % 2 === 1 ? ' alt' : '');
+        seg.style.left = minutesToPct(start) + '%';
+        seg.style.width = (minutesToPct(end) - minutesToPct(start)) + '%';
+        const label = document.createElement('div');
+        label.textContent = `${toHHMM(start)} - ${toHHMM(end)}`;
+        seg.appendChild(label);
+        if (boundaries.length > 2){
+          const del = document.createElement('button');
+          del.type = 'button'; del.className = 'seg-del'; del.textContent = '×';
+          del.title = 'حذف این بازه';
+          del.onclick = (ev) => { ev.stopPropagation(); removeSegment(i); };
+          seg.appendChild(del);
+        }
+        trackEl.appendChild(seg);
+      }
+      // handles
+      for (let i=0; i<boundaries.length; i++){
+        const isLocked = (i === 0 || i === boundaries.length-1);
+        const h = document.createElement('div');
+        h.className = 'timeline-handle' + (isLocked ? ' locked' : '');
+        if (highlightPair && (i === highlightPair[0] || i === highlightPair[1])) h.classList.add('new');
+        h.style.left = minutesToPct(boundaries[i]) + '%';
+        if (!isLocked){ h.addEventListener('pointerdown', (e) => startDrag(e, i)); }
+        trackEl.appendChild(h);
+      }
+    };
+
+    function removeSegment(segIndex){
+      if (boundaries.length <= 2) return;
+      if (segIndex === 0) boundaries.splice(1,1); else boundaries.splice(segIndex,1);
+      highlightPair = null;
+      render();
+    }
+
+    function startDrag(e, idx){
+      e.preventDefault();
+      const rect = trackEl.getBoundingClientRect();
+      dragging = { index: idx, rect };
+      try { trackEl.setPointerCapture(e.pointerId); } catch {}
+      window.addEventListener('pointermove', onDrag);
+      window.addEventListener('pointerup', endDrag, { once: true });
+    }
+    function onDrag(e){
+      if (!dragging) return;
+      const { index, rect } = dragging;
+      let pct = ((e.clientX - rect.left) / rect.width) * 100;
+      // clamp within neighbors with 5min gap
+      const minPct = minutesToPct(boundaries[index-1] + 5);
+      const maxPct = minutesToPct(boundaries[index+1] - 5);
+      pct = Math.max(minPct, Math.min(maxPct, pct));
+      let min = pctToMinutes(pct);
+      min = Math.round(min/5)*5;
+      min = Math.max(boundaries[index-1]+5, Math.min(boundaries[index+1]-5, min));
+      boundaries[index] = min;
+      highlightPair = null;
+      render();
+    }
+    function endDrag(){
+      window.removeEventListener('pointermove', onDrag);
+      dragging = null;
+    }
+
+    function addPeriod(){
+      if ((boundaries.length-1) >= 5) return;
+      let bestI = 0, bestLen = -1;
+      for (let i=0; i<boundaries.length-1; i++){
+        const len = boundaries[i+1]-boundaries[i];
+        if (len > bestLen){ bestLen = len; bestI = i; }
+      }
+      const mid = boundaries[bestI] + Math.floor((boundaries[bestI+1]-boundaries[bestI])/2);
+      boundaries.splice(bestI+1, 0, mid);
+      highlightPair = [bestI+1, bestI+2];
+      render();
+    }
+
+    const cancelEl = qs('#periods-cancel');
+    if (cancelEl) cancelEl.onclick = () => { m.classList.add('hidden'); };
+    const addEl = qs('#add-period');
+    if (addEl) addEl.onclick = addPeriod;
+    const saveEl = qs('#periods-save');
+    if (saveEl) saveEl.onclick = () => {
+      const newPeriods = [];
+      for (let i=0; i<boundaries.length-1; i++){
+        newPeriods.push({ id: genId(), start: boundaries[i], end: boundaries[i+1], defaultPrices: zeroPrices() });
+      }
+      branch.periods = newPeriods;
+      (branch.systems||[]).forEach(s => { s.pricesByPeriod = {}; delete s.prices; });
+      saveBranches(branches);
+      currentPeriodId = branch.periods[0]?.id || null;
+      renderPeriodSelect(branch);
+      fillDefaultPricesForm(branch);
+      renderSystemsTable(branch);
+      m.classList.add('hidden');
+    };
+    render();
     m.classList.remove('hidden');
   }
 });
