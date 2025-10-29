@@ -35,6 +35,12 @@ body {
   direction: rtl;
 }
 
+/* Ensure custom font applies to interactive controls and tabs */
+button, input, select, textarea {
+  font-family: 'PeydaWebFaNum', system-ui, -apple-system, Segoe UI, Tahoma, Arial, sans-serif;
+}
+input::placeholder, textarea::placeholder { font-family: inherit; }
+
 .hidden { display: none !important; }
 
 /* Auth */
