@@ -4,8 +4,8 @@ const USERNAME_KEY = "gamenet_username";
 
 // Demo in-memory users
 const USER_DB = [
-  { name: "ادمین", email: "admin@example.com", active: true },
-  { name: "کاربر 1", phone: "09123456789", email: "", active: true }
+  { name: "????", email: "admin@example.com", active: true },
+  { name: "????? 1", phone: "09123456789", email: "", active: true }
 ];
 
 function qs(sel, root = document) { return root.querySelector(sel); }
@@ -53,12 +53,23 @@ function setActiveTab(tab) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Init password storage (default: admin/1234)
-  const cur = localStorage.getItem(PASS_KEY);
-  if (!cur) localStorage.setItem(PASS_KEY, '1234');
-  else if (cur === '12345') localStorage.setItem(PASS_KEY, '1234');
+  // Init password storage
+  const __curPass = localStorage.getItem(PASS_KEY);
+  if (!__curPass || __curPass === '1234') localStorage.setItem(PASS_KEY, '12345');
   const token = localStorage.getItem(AUTH_KEY);
   setView(Boolean(token));
+
+  // Adjust login UI hints to requested credentials
+  try {
+    const uInput = qs('#username');
+    if (uInput && typeof uInput.placeholder === 'string') {
+      uInput.placeholder = uInput.placeholder.replace(/admin/i, 'developer');
+    }
+    const hint = document.querySelector('#login-form .hint');
+    if (hint && typeof hint.innerHTML === 'string') {
+      hint.innerHTML = hint.innerHTML.replace(/admin/i, 'developer').replace(/1234/g, '12345');
+    }
+  } catch {}
 
   // Login
   const form = qs('#login-form');
@@ -67,8 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const user = qs('#username').value.trim();
     const pass = qs('#password').value;
     const err = qs('#login-error');
-    const saved = localStorage.getItem(PASS_KEY) || '1234';
-    if (user === 'admin' && pass === saved) {
+    const saved = localStorage.getItem(PASS_KEY) || '12345';
+    if (user === 'developer' && pass === saved) {
       localStorage.setItem(AUTH_KEY, 'ok');
       localStorage.setItem(USERNAME_KEY, user);
       err.textContent = '';
@@ -176,8 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // --- Developer settings (tab) + favicon cropper injection ---
 (function(){
-  // Disabled: revert to original UI without developer settings tab
-  return;
   const SITE_TITLE_KEY = 'gamenet_site_title';
   const FAVICON_KEY = 'gamenet_favicon_data';
   const TIMEZONE_KEY = 'gamenet_timezone';
@@ -525,8 +534,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initLogic); else initLogic();
 })();
-// --- Users & Permissions extensions (disabled to revert UI) ---
-/* const USERS_KEY = 'gamenet_users';
+// --- Users & Permissions extensions ---
+const USERS_KEY = 'gamenet_users';
 const PERMISSION_TABS = {
   home: { label: 'خانه', parts: ['نمای کلی'] },
   users: { label: 'کاربران', parts: ['افزودن', 'ویرایش', 'حذف', 'مشاهده', 'دسترسی کاربران'] },
@@ -766,6 +775,10 @@ function savePermsFromModal(){
 }
 
 // Wire up after base script listeners
-document.addEventListener('DOMContentLoaded', () => {});
-*/
+document.addEventListener('DOMContentLoaded', () => {
+  try { ensureUserAndPermModals(); } catch {}
+  const addBtn = qs('#add-user'); addBtn && addBtn.addEventListener('click', () => openUserModalX());
+  // Initial render with extended schema
+  try { renderUsers(); updateKpis(); } catch {}
+});
 
