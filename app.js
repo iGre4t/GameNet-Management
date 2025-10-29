@@ -331,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const abs = Math.abs(min);
         const hh = String(Math.floor(abs/60)).padStart(2,'0');
         const mm = String(abs%60).padStart(2,'0');
-        to.value = ${sign}:;
+        to.value = `${sign}${hh}:${mm}`;
       }
       // Save handler
       const saveBtn = sec.querySelector('#dev-save');
