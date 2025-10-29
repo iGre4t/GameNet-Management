@@ -97,6 +97,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  // Update the visible price status for each system based on active period
+  const updateSystemStatusLabels = (branch) => {
+    const tbody = qs('#systems-body');
+    if (!tbody) return;
+    const pid = currentPeriodId || (ensureBranchPeriods(branch).periods[0]?.id);
+    qsa('#systems-body tr').forEach(tr => {
+      const id = tr.querySelector('.row-select')?.dataset.id;
+      if (!id) return;
+      const sys = (branch.systems||[]).find(s => s.id === id);
+      if (!sys) return;
+      const hasOverride = !!(sys.pricesByPeriod && pid && sys.pricesByPeriod[pid]);
+      const cell = tr.children && tr.children[2];
+      if (cell) cell.textContent = hasOverride ? 'قیمت سفارشی' : 'قیمت پیشفرض';
+    });
+  };
+
   const showManageView = () => {
     currentBranchId = null;
     setSubnavActive('manage');
@@ -119,6 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPeriodSelect(branch);
     fillDefaultPricesForm(branch);
     renderSystemsTable(branch);
+    updateSystemStatusLabels(branch);
   };
 
   // Add branch
@@ -159,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     saveBranches(branches);
     input.value = '';
     renderSystemsTable(branch);
+    updateSystemStatusLabels(branch);
   });
 
   // Modal helpers
@@ -223,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pricesEqual(newPrices, def)) { delete sys.pricesByPeriod[periodId]; } else { sys.pricesByPeriod[periodId] = newPrices; }
     saveBranches(branches);
     closeSystemModal();
-    if (currentBranchId === branch.id) renderSystemsTable(branch);
+    if (currentBranchId === branch.id) { renderSystemsTable(branch); updateSystemStatusLabels(branch); }
   });
 
   // Initialize on switching to branches tab
@@ -261,6 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPeriodSelect(branch);
     fillDefaultPricesForm(branch);
     renderSystemsTable(branch);
+    updateSystemStatusLabels(branch);
   };
 
   qs('#default-prices-form')?.addEventListener('submit', (e) => {
@@ -285,6 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const msg = qs('#default-prices-msg');
     if (msg) { msg.textContent = 'ذخیره شد'; setTimeout(() => msg.textContent = '', 1500); }
     renderSystemsTable(branch);
+    updateSystemStatusLabels(branch);
   });
 
   // Format price inputs (commas)
@@ -332,6 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     saveBranches(branches);
     renderSystemsTable(branch);
+    updateSystemStatusLabels(branch);
   });
 
   // When entering a branch page, also fill defaults/prices, so hook into showBranchPage calls
@@ -357,7 +378,8 @@ document.addEventListener('DOMContentLoaded', () => {
     sel.onchange = () => {
       currentPeriodId = sel.value;
       fillDefaultPricesForm(branch);
-      renderSystemsTable(branch);
+    renderSystemsTable(branch);
+    updateSystemStatusLabels(branch);
     };
     const btn = qs('#manage-periods');
     if (btn){ btn.onclick = () => openPeriodsModalTimeline(branch.id); }
@@ -447,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
       renderPeriodSelect(branch);
       fillDefaultPricesForm(branch);
       renderSystemsTable(branch);
+      updateSystemStatusLabels(branch);
       m.classList.add('hidden');
     };
     m.classList.remove('hidden');
@@ -625,9 +648,49 @@ document.addEventListener('DOMContentLoaded', () => {
       renderPeriodSelect(branch);
       fillDefaultPricesForm(branch);
       renderSystemsTable(branch);
+      updateSystemStatusLabels(branch);
       m.classList.add('hidden');
     };
     render();
     m.classList.remove('hidden');
   }
+
+  // Intercept bulk submit to use class-style modal instead of browser alerts/confirms
+  (function setupBulkOverride(){
+    const bulkFormEl = qs('#bulk-form');
+    if (!bulkFormEl) return;
+    bulkFormEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const branch = branches.find(b => b.id === currentBranchId);
+      if (!branch) return;
+      const selected = qsa('#systems-body .row-select:checked').map(ch => ch.dataset.id);
+      if (!selected.length) { await showDialog('هیچ سیستمی انتخاب نشده است.', { confirm: false }); return; }
+      const targetPrices = {
+        p1: parsePrice(qs('#bulk-1p').value),
+        p2: parsePrice(qs('#bulk-2p').value),
+        p3: parsePrice(qs('#bulk-3p').value),
+        p4: parsePrice(qs('#bulk-4p').value),
+        birthday: parsePrice(qs('#bulk-birthday').value),
+        film: parsePrice(qs('#bulk-film').value)
+      };
+      const pid = currentPeriodId || (ensureBranchPeriods(branch).periods[0]?.id);
+      const effs = selected.map(id => getEffectivePrices(branch, branch.systems.find(s => s.id === id), pid));
+      const allSame = effs.every(p => pricesEqual(p, effs[0]));
+      if (!allSame) {
+        const ok = await showDialog('قیمت‌های سیستم‌های انتخاب‌شده یکسان نیست. آیا می‌خواهید همه را با مقادیر جدید جایگزین کنید؟', { confirm: true, okText: 'بله، اعمال کن', cancelText: 'خیر' });
+        if (!ok) return;
+      }
+      selected.forEach(id => {
+        const sys = branch.systems.find(s => s.id === id);
+        if (!sys) return;
+        const def = branch.periods.find(p => p.id === pid)?.defaultPrices || zeroPrices();
+        sys.pricesByPeriod = sys.pricesByPeriod || {};
+        if (pricesEqual(targetPrices, def)) delete sys.pricesByPeriod[pid]; else sys.pricesByPeriod[pid] = targetPrices;
+      });
+      saveBranches(branches);
+      renderSystemsTable(branch);
+      updateSystemStatusLabels(branch);
+    }, true);
+  })();
 });

@@ -1,10 +1,11 @@
 ﻿const AUTH_KEY = "gamenet_auth";
 const PASS_KEY = "gamenet_admin_password";
+const USERNAME_KEY = "gamenet_username";
 
 // Demo in-memory users
 const USER_DB = [
-  { name: "مدیر", email: "admin@example.com", active: true },
-  { name: "کاربر 1", phone: "09123456789", email: "", active: true }
+  { name: "????", email: "admin@example.com", active: true },
+  { name: "????? 1", phone: "09123456789", email: "", active: true }
 ];
 
 function qs(sel, root = document) { return root.querySelector(sel); }
@@ -38,7 +39,7 @@ function renderUsers() {
   // Show users that are logged in and have no email
   USER_DB.filter(u => (!u.email || u.email === '') && u.active).forEach(u => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${u.name}</td><td>${u.phone || ''}</td><td>${u.active ? 'فعال' : 'غیرفعال'}</td>`;
+    tr.innerHTML = `<td>${u.name}</td><td>${u.phone || ''}</td><td>${u.active ? '????' : '???????'}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -46,16 +47,29 @@ function renderUsers() {
 function setActiveTab(tab) {
   qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   qsa('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
-  const titles = { home: 'خانه', users: 'کاربران', settings: 'تنظیمات' };
+  const titles = { home: '????', users: '???????', settings: '???????' };
   const el = qs('#page-title');
   if (el) el.textContent = titles[tab] || '';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   // Init password storage
-  if (!localStorage.getItem(PASS_KEY)) localStorage.setItem(PASS_KEY, '1234');
+  const __curPass = localStorage.getItem(PASS_KEY);
+  if (!__curPass || __curPass === '1234') localStorage.setItem(PASS_KEY, '12345');
   const token = localStorage.getItem(AUTH_KEY);
   setView(Boolean(token));
+
+  // Adjust login UI hints to requested credentials
+  try {
+    const uInput = qs('#username');
+    if (uInput && typeof uInput.placeholder === 'string') {
+      uInput.placeholder = uInput.placeholder.replace(/admin/i, 'developer');
+    }
+    const hint = document.querySelector('#login-form .hint');
+    if (hint && typeof hint.innerHTML === 'string') {
+      hint.innerHTML = hint.innerHTML.replace(/admin/i, 'developer').replace(/1234/g, '12345');
+    }
+  } catch {}
 
   // Login
   const form = qs('#login-form');
@@ -64,20 +78,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const user = qs('#username').value.trim();
     const pass = qs('#password').value;
     const err = qs('#login-error');
-    const saved = localStorage.getItem(PASS_KEY) || '1234';
-    if (user === 'admin' && pass === saved) {
+    const saved = localStorage.getItem(PASS_KEY) || '12345';
+    if (user === 'developer' && pass === saved) {
       localStorage.setItem(AUTH_KEY, 'ok');
+      localStorage.setItem(USERNAME_KEY, user);
       err.textContent = '';
       setView(true);
       setActiveTab('home');
     } else {
-      err.textContent = 'ورود ناموفق بود. لطفا اطلاعات را بررسی کنید.';
+      err.textContent = '???? ?????? ???. ???? ??????? ?? ????? ????.';
     }
   });
 
   // Logout
   qs('#logout')?.addEventListener('click', () => {
     localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(USERNAME_KEY);
     setView(false);
   });
 
@@ -95,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const now = new Date();
     const time = now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute:'2-digit', second:'2-digit', hour12:false, timeZone: tz });
     const dateFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday:'long', year:'numeric', month:'long', day:'numeric', timeZone: tz }).format(now);
-    el.innerHTML = `<span class="time">${time}</span><span class="date">${dateFa}</span>`;
+    el.innerHTML = `<span class="time">${time}</span><span class="date">${dateFa}</span><span class="user">${localStorage.getItem(USERNAME_KEY) || "admin"}</span>`;
   }
   renderClock();
   setInterval(renderClock, 1000);
@@ -130,15 +146,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const pass = qs('#user-pass').value;
     const msg = qs('#user-form-msg');
     if (!/^\d{11}$/.test(phone)) {
-      msg.textContent = 'شماره تلفن باید ۱۱ رقم باشد.';
+      msg.textContent = '????? ???? ???? ?? ??? ????.';
       return;
     }
     if (!pass || pass.length < 4) {
-      msg.textContent = 'رمز حداقل ۴ کاراکتر باشد.';
+      msg.textContent = '??? ????? ? ??????? ????.';
       return;
     }
     const idx = USER_DB.length + 1;
-    USER_DB.push({ name: `کاربر ${idx}`, phone, email: "", password: pass, active: true });
+    USER_DB.push({ name: `????? ${idx}`, phone, email: "", password: pass, active: true });
     renderUsers();
     updateKpis();
     closeUserModal();
@@ -153,19 +169,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const msg = qs('#privacy-msg');
     const saved = localStorage.getItem(PASS_KEY) || '1234';
     if (cur !== saved) {
-      msg.textContent = 'رمز فعلی نادرست است.';
+      msg.textContent = '??? ???? ?????? ???.';
       return;
     }
     if (np.length < 4) {
-      msg.textContent = 'رمز جدید حداقل ۴ کاراکتر باشد.';
+      msg.textContent = '??? ???? ????? ? ??????? ????.';
       return;
     }
     if (np !== cp) {
-      msg.textContent = 'تکرار رمز جدید یکسان نیست.';
+      msg.textContent = '????? ??? ???? ????? ????.';
       return;
     }
     localStorage.setItem(PASS_KEY, np);
-    msg.textContent = 'رمز با موفقیت به‌روزرسانی شد.';
+    msg.textContent = '??? ?? ?????? ??????????? ??.';
   });
 });
 
@@ -185,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const STR_ZOOM = "\u0628\u0632\u0631\u06AF\u0646\u0645\u0627\u06CC\u06CC";
   const STR_CANCEL = "\u0627\u0646\u0635\u0631\u0627\u0641";
   const STR_SAVE = "\u0630\u062E\u06CC\u0631\u0647";
-  const STR_TIMEZONE = "اختلاف ساعت محلی";
+  const STR_TIMEZONE = "?????? ???? ????";
 
   function ensureStyles(){
     if (document.getElementById('dev-styles')) return;
@@ -521,10 +537,10 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- Users & Permissions extensions ---
 const USERS_KEY = 'gamenet_users';
 const PERMISSION_TABS = {
-  home: { label: 'خانه', parts: ['نمایش داشبورد'] },
-  users: { label: 'کاربران', parts: ['مشاهده', 'افزودن', 'ویرایش', 'حذف', 'ویرایش مجوز'] },
-  branches: { label: 'شعب', parts: ['مشاهده', 'افزودن/ویرایش سیستم', 'تعرفه'] },
-  settings: { label: 'تنظیمات', parts: ['مشاهده', 'امنیت', 'ظاهر'] }
+  home: { label: '????', parts: ['????? ???????'] },
+  users: { label: '???????', parts: ['??????', '??????', '??????', '???', '?????? ????'] },
+  branches: { label: '???', parts: ['??????', '??????/?????? ?????', '?????'] },
+  settings: { label: '???????', parts: ['??????', '?????', '????'] }
 };
 
 function loadUsers(){
@@ -533,8 +549,9 @@ function loadUsers(){
     if (raw) return JSON.parse(raw);
   } catch {}
   const seeded = [
-    { id: 'admin', code: '00000', first: 'ادمین', last: 'سیستم', phone: '', password: '', active: true, email: 'admin@example.com', permissions: { tabs: {}, parts: {} } },
-    { id: genId(), code: genCode([]), first: 'کاربر', last: 'یک', phone: '09123456789', password: '1234', active: true, email: '', permissions: { tabs: {}, parts: {} } }
+    // Main admin account with full name "توسعه دهنده"
+    { id: 'admin', code: '00000', first: '\u062A\u0648\u0633\u0639\u0647', last: '\u062F\u0647\u0646\u062F\u0647', phone: '', password: '', active: true, email: 'admin@example.com', permissions: { tabs: {}, parts: {} } },
+    { id: genId(), code: genCode([]), first: 'User', last: '1', phone: '09123456789', password: '1234', active: true, email: '', permissions: { tabs: {}, parts: {} } }
   ];
   saveUsers(seeded);
   return seeded;
@@ -546,12 +563,16 @@ function saveUsers(arr){
 
 function genId(){ return Math.random().toString(36).slice(2, 10); }
 function genCode(existing){
-  const used = new Set(existing.map(u => u.code));
-  for (let i=0;i<10000;i++){
-    const c = Math.floor(Math.random()*100000).toString().padStart(5,'0');
-    if (!used.has(c)) return c;
-  }
-  return (Date.now()%100000).toString().padStart(5,'0');
+  // Generate a sequential 5-digit unique code starting at 00001.
+  // Persist the counter so creation order defines the sequence from now on.
+  const KEY = 'gamenet_code_seq';
+  const used = new Set((existing||[]).map(u => String(u.code||'')));
+  let seq = parseInt(localStorage.getItem(KEY) || '1', 10);
+  if (!Number.isFinite(seq) || seq < 1) seq = 1;
+  let code = String(seq).padStart(5, '0');
+  while (used.has(code)) { seq++; code = String(seq).padStart(5, '0'); }
+  localStorage.setItem(KEY, String(seq));
+  return code;
 }
 
 // Override KPI and user rendering to use localStorage-backed users
@@ -568,15 +589,15 @@ function renderUsers(){
   if (!tbody) return;
   tbody.innerHTML = '';
   const headRow = qs('#tab-users thead tr');
-  if (headRow){ headRow.innerHTML = '<th>کد ۵ رقمی</th><th>نام و نام خانوادگی</th><th>تلفن/نام‌کاربری</th><th>وضعیت</th><th>اقدامات</th>'; }
+  if (headRow){ headRow.innerHTML = '<th>\u06A9\u062F \u06CC\u06A9\u062A\u0627</th><th>??? ? ??? ????????</th><th>????/??????????</th><th>?????</th><th>???????</th>'; }
   const users = loadUsers().filter(u => !u.email);
   users.forEach(u => {
     const tr = document.createElement('tr');
     const full = `${u.first || ''} ${u.last || ''}`.trim();
-    const status = u.active ? 'فعال' : 'غیرفعال';
+    const status = u.active ? '????' : '???????';
     tr.innerHTML = `<td>${u.code || ''}</td><td>${full}</td><td>${u.phone || ''}</td><td>${status}</td><td>
-      <button class="btn" data-act="edit" data-id="${u.id}">ویرایش</button>
-      <button class="btn" data-act="perm" data-id="${u.id}">مجوزها</button>
+      <button class="btn" data-act="edit" data-id="${u.id}">??????</button>
+      <button class="btn" data-act="perm" data-id="${u.id}">??????</button>
     </td>`;
     tbody.appendChild(tr);
   });
@@ -600,35 +621,35 @@ function ensureUserAndPermModals(){
     const card = um.querySelector('.modal-card');
     if (card){
       card.innerHTML = `
-        <h3 id="user-modal-title">افزودن کاربر</h3>
+        <h3 id="user-modal-title">?????? ?????</h3>
         <form id="user-form" class="form">
           <div class="grid full">
             <label class="field">
-              <span>نام</span>
+              <span>???</span>
               <input id="user-first" type="text" required />
             </label>
             <label class="field">
-              <span>نام خانوادگی</span>
+              <span>??? ????????</span>
               <input id="user-last" type="text" required />
             </label>
           </div>
           <div class="grid full">
             <label class="field">
-              <span>تلفن/نام‌کاربری (11 رقم)</span>
+              <span>????/?????????? (11 ???)</span>
               <input id="user-phone" type="text" inputmode="numeric" pattern="^\\d{11}$" placeholder="09xxxxxxxxx" required />
             </label>
             <label class="field">
-              <span>کد ۵ رقمی (غیرقابل ویرایش)</span>
+              <span>\u06A9\u062F \u06CC\u06A9\u062A\u0627</span>
               <input id="user-code" type="text" inputmode="numeric" pattern="^\\d{5}$" readonly />
             </label>
           </div>
           <label class="field">
-            <span>گذرواژه</span>
+            <span>???????</span>
             <input id="user-pass" type="password" minlength="4" placeholder="******" />
           </label>
           <div class="modal-actions">
-            <button type="button" class="btn" id="user-cancel">انصراف</button>
-            <button type="submit" class="btn primary" id="user-save">ذخیره</button>
+            <button type="button" class="btn" id="user-cancel">??????</button>
+            <button type="submit" class="btn primary" id="user-save">?????</button>
           </div>
           <p id="user-form-msg" class="hint"></p>
         </form>`;
@@ -643,17 +664,17 @@ function ensureUserAndPermModals(){
     modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true');
     modal.innerHTML = `
       <div class="modal-card large">
-        <h3 id="perm-modal-title">مجوزهای کاربر</h3>
+        <h3 id="perm-modal-title">??????? ?????</h3>
         <div class="sub-layout">
           <aside class="sub-sidebar">
-            <div class="sub-header">تب‌ها</div>
+            <div class="sub-header">?????</div>
             <nav id="perm-subnav" class="sub-nav"></nav>
           </aside>
           <div class="sub-content">
             <div id="perm-content"></div>
             <div class="modal-actions">
-              <button type="button" class="btn" id="perm-cancel">انصراف</button>
-              <button type="button" class="btn primary" id="perm-save">ذخیره</button>
+              <button type="button" class="btn" id="perm-cancel">??????</button>
+              <button type="button" class="btn primary" id="perm-save">?????</button>
             </div>
             <p id="perm-msg" class="hint"></p>
           </div>
@@ -668,7 +689,7 @@ function ensureUserAndPermModals(){
 function openUserModalX(id){
   const users = loadUsers();
   const isEdit = !!id; CURRENT_EDIT_USER = id || null;
-  const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? 'ویرایش کاربر' : 'افزودن کاربر';
+  const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? '?????? ?????' : '?????? ?????';
   const f = qs('#user-first'), l = qs('#user-last'), p = qs('#user-phone'), c = qs('#user-code'), pw = qs('#user-pass');
   const msg = qs('#user-form-msg'); if (msg) msg.textContent = '';
   if (isEdit){
@@ -690,9 +711,9 @@ function onUserFormSubmitX(e){
   const code = qs('#user-code').value.trim();
   const pass = qs('#user-pass').value;
   const msg = qs('#user-form-msg');
-  if (!first || !last){ msg && (msg.textContent = 'نام و نام خانوادگی الزامی است.'); return; }
-  if (!/^\d{11}$/.test(phone)){ msg && (msg.textContent = 'شماره تلفن باید ۱۱ رقم باشد.'); return; }
-  if (!/^\d{5}$/.test(code)){ msg && (msg.textContent = 'کد باید ۵ رقمی باشد.'); return; }
+  if (!first || !last){ msg && (msg.textContent = '??? ? ??? ???????? ?????? ???.'); return; }
+  if (!/^\d{11}$/.test(phone)){ msg && (msg.textContent = '????? ???? ???? ?? ??? ????.'); return; }
+  if (!/^\d{5}$/.test(code)){ msg && (msg.textContent = '?? ???? ? ???? ????.'); return; }
   const users = loadUsers();
   if (CURRENT_EDIT_USER){
     const i = users.findIndex(u => u.id === CURRENT_EDIT_USER); if (i === -1) return;
@@ -716,9 +737,9 @@ function openPermModal(id){
     const hasTab = !!perms.tabs[key];
     pane.innerHTML = `
       <div class="perm-row">
-        <label class="chk"><input type="checkbox" id="${chkId}" ${hasTab?'checked':''}/> دسترسی به تب «${def.label}»</label>
+        <label class="chk"><input type="checkbox" id="${chkId}" ${hasTab?'checked':''}/> ?????? ?? ?? �${def.label}�</label>
         <label class="field">
-          <span>مجوز بخش‌ها</span>
+          <span>???? ??????</span>
           <select id="${selId}" multiple></select>
         </label>
       </div>`;
