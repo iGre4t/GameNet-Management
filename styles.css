@@ -102,6 +102,13 @@ input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(225,29,46
   min-height: 100vh;
 }
 
+/* Collapsed sidebar state */
+#app-view.collapsed { grid-template-columns: 72px 1fr; }
+#app-view.collapsed .sidebar .title,
+#app-view.collapsed .nav-item span:not(.icon) { display: none; }
+#app-view.collapsed .sidebar { padding: 16px 8px; }
+#app-view.collapsed .nav-item { justify-content: center; }
+
 .sidebar {
   border-left: 1px solid var(--border);
   padding: 16px 12px;

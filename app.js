@@ -88,8 +88,10 @@ document.addEventListener('DOMContentLoaded', () => {
   qs('#sidebarToggle')?.addEventListener('click', () => {
     const app = qs('#app-view');
     if (!app) return;
-    const isNarrow = getComputedStyle(app).gridTemplateColumns.split(' ')[0].includes('72px');
-    app.style.gridTemplateColumns = isNarrow ? '260px 1fr' : '72px 1fr';
+    // Toggle collapsed class instead of inline styles so CSS can hide labels
+    app.classList.toggle('collapsed');
+    // Clear any previous inline width to let CSS take over
+    app.style.gridTemplateColumns = '';
   });
 
   // Add user via modal (phone + password)
@@ -150,4 +152,3 @@ document.addEventListener('DOMContentLoaded', () => {
     msg.textContent = 'رمز با موفقیت به‌روزرسانی شد.';
   });
 });
-
