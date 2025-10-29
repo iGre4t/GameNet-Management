@@ -189,3 +189,15 @@ tbody tr:hover { background: #fff5f6; }
 .sub-item:hover { background: #fafafa; border-color: var(--border); }
 .sub-item.active { background: rgba(225,29,46,0.08); border-color: rgba(225,29,46,0.22); color: var(--primary-600); }
 .sub-content { display: grid; gap: 12px; }
+
+/* Bulk bar for systems */
+.bulk-bar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin: 8px 0 12px; flex-wrap: wrap; }
+.bulk-left { display: flex; align-items: center; gap: 10px; }
+.chk { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.bulk-form { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); gap: 8px; align-items: end; }
+.bulk-form input[type="text"] { min-width: 120px; }
+
+/* Hide number arrows globally if any are used */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; }

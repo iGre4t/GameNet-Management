@@ -146,18 +146,74 @@
                 </div>
               </div>
 
-              <!-- Branch page: systems list -->
+              <!-- Branch page: default prices + systems list -->
               <div id="branch-page-view" class="hidden">
+                <!-- Default prices of branch -->
+                <div class="card" style="margin-bottom:12px;">
+                  <h3>قیمت‌های پیشفرض شعبه</h3>
+                  <form id="default-prices-form" class="form grid">
+                    <label class="field">
+                      <span>تک دسته (ریال/ساعت)</span>
+                      <input class="price-input" id="def-1p" type="text" inputmode="numeric" required />
+                    </label>
+                    <label class="field">
+                      <span>دو دسته (ریال/ساعت)</span>
+                      <input class="price-input" id="def-2p" type="text" inputmode="numeric" required />
+                    </label>
+                    <label class="field">
+                      <span>سه دسته (ریال/ساعت)</span>
+                      <input class="price-input" id="def-3p" type="text" inputmode="numeric" required />
+                    </label>
+                    <label class="field">
+                      <span>چهار دسته (ریال/ساعت)</span>
+                      <input class="price-input" id="def-4p" type="text" inputmode="numeric" required />
+                    </label>
+                    <label class="field">
+                      <span>تولد (ریال)</span>
+                      <input class="price-input" id="def-birthday" type="text" inputmode="numeric" required />
+                    </label>
+                    <label class="field">
+                      <span>فیلم (ریال)</span>
+                      <input class="price-input" id="def-film" type="text" inputmode="numeric" required />
+                    </label>
+                    <div class="field full">
+                      <button type="submit" class="btn primary">ذخیره قیمت‌های پیشفرض</button>
+                    </div>
+                    <p id="default-prices-msg" class="hint full"></p>
+                  </form>
+                </div>
+
                 <div class="card">
                   <div class="table-header">
                     <h3 id="branch-page-title">شعبه</h3>
-                    <button id="add-system" class="btn primary">افزودن سیستم</button>
+                    <form id="add-system-form" class="form" style="grid-auto-flow: column; align-items:center; grid-auto-columns: max-content; gap:8px;">
+                      <input id="system-name-input" type="text" placeholder="نام سیستم" required />
+                      <button type="submit" class="btn primary">افزودن سیستم</button>
+                    </form>
                   </div>
+
+                  <div id="bulk-bar" class="bulk-bar">
+                    <div class="bulk-left">
+                      <label class="chk"><input type="checkbox" id="select-all" /> انتخاب همه</label>
+                    </div>
+                    <form id="bulk-form" class="form bulk-form">
+                      <input class="price-input" id="bulk-1p" type="text" inputmode="numeric" placeholder="تک دسته" required />
+                      <input class="price-input" id="bulk-2p" type="text" inputmode="numeric" placeholder="دو دسته" required />
+                      <input class="price-input" id="bulk-3p" type="text" inputmode="numeric" placeholder="سه دسته" required />
+                      <input class="price-input" id="bulk-4p" type="text" inputmode="numeric" placeholder="چهار دسته" required />
+                      <input class="price-input" id="bulk-birthday" type="text" inputmode="numeric" placeholder="تولد" required />
+                      <input class="price-input" id="bulk-film" type="text" inputmode="numeric" placeholder="فیلم" required />
+                      <button type="submit" class="btn">اعمال تغییرات دسته جمعی</button>
+                    </form>
+                  </div>
+
                   <div class="table-wrapper">
                     <table>
                       <thead>
                         <tr>
+                          <th style="width:42px"><input type="checkbox" id="header-select" /></th>
                           <th>نام سیستم</th>
+                          <th>وضعیت قیمت</th>
                           <th>تنظیمات</th>
                         </tr>
                       </thead>
@@ -241,29 +297,29 @@
           <div class="grid full">
             <label class="field">
               <span>تک دسته (ریال/ساعت)</span>
-              <input id="price-1p" type="number" min="0" step="1" />
+              <input id="price-1p" class="price-input" type="text" inputmode="numeric" required />
             </label>
             <label class="field">
               <span>دو دسته (ریال/ساعت)</span>
-              <input id="price-2p" type="number" min="0" step="1" />
+              <input id="price-2p" class="price-input" type="text" inputmode="numeric" required />
             </label>
             <label class="field">
               <span>سه دسته (ریال/ساعت)</span>
-              <input id="price-3p" type="number" min="0" step="1" />
+              <input id="price-3p" class="price-input" type="text" inputmode="numeric" required />
             </label>
             <label class="field">
               <span>چهار دسته (ریال/ساعت)</span>
-              <input id="price-4p" type="number" min="0" step="1" />
+              <input id="price-4p" class="price-input" type="text" inputmode="numeric" required />
             </label>
           </div>
           <div class="grid full">
             <label class="field">
               <span>تولد (ریال)</span>
-              <input id="price-birthday" type="number" min="0" step="1" />
+              <input id="price-birthday" class="price-input" type="text" inputmode="numeric" required />
             </label>
             <label class="field">
               <span>فیلم (ریال)</span>
-              <input id="price-film" type="number" min="0" step="1" />
+              <input id="price-film" class="price-input" type="text" inputmode="numeric" required />
             </label>
           </div>
           <div class="modal-actions">
