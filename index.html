@@ -47,6 +47,9 @@
           <button class="nav-item" data-tab="users">
             <span>کاربران</span>
           </button>
+          <button class="nav-item" data-tab="branches">
+            <span>مدیریت شعب</span>
+          </button>
           <button class="nav-item" data-tab="settings">
             <span>تنظیمات</span>
           </button>
@@ -100,6 +103,69 @@
                 </thead>
                 <tbody id="users-body"></tbody>
               </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Branch Management Tab -->
+        <section id="tab-branches" class="tab">
+          <div class="sub-layout">
+            <aside class="sub-sidebar">
+              <div class="sub-header">مدیریت شعب</div>
+              <nav id="branch-subnav" class="sub-nav">
+                <button class="sub-item active" data-view="manage">مدیریت</button>
+                <div id="branch-items"></div>
+              </nav>
+            </aside>
+            <div class="sub-content">
+              <!-- Manage view: add/list branches -->
+              <div id="branch-manage-view" class="card">
+                <div class="table-header">
+                  <h3>مدیریت شعب</h3>
+                </div>
+                <form id="add-branch-form" class="form grid">
+                  <label class="field">
+                    <span>نام شعبه</span>
+                    <input type="text" id="branch-name" placeholder="مثلاً: شعبه مرکزی" required />
+                  </label>
+                  <div class="field">
+                    <span>&nbsp;</span>
+                    <button type="submit" class="btn primary">افزودن شعبه</button>
+                  </div>
+                </form>
+                <div class="table-wrapper" style="margin-top:12px;">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>نام شعبه</th>
+                        <th>اقدامات</th>
+                      </tr>
+                    </thead>
+                    <tbody id="branches-body"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Branch page: systems list -->
+              <div id="branch-page-view" class="hidden">
+                <div class="card">
+                  <div class="table-header">
+                    <h3 id="branch-page-title">شعبه</h3>
+                    <button id="add-system" class="btn primary">افزودن سیستم</button>
+                  </div>
+                  <div class="table-wrapper">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>نام سیستم</th>
+                          <th>تنظیمات</th>
+                        </tr>
+                      </thead>
+                      <tbody id="systems-body"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -161,7 +227,55 @@
       </div>
     </div>
 
+    <!-- System Settings Modal -->
+    <div id="system-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="system-modal-title">
+      <div class="modal-card">
+        <h3 id="system-modal-title">تنظیمات سیستم</h3>
+        <form id="system-form" class="form">
+          <div class="grid full">
+            <label class="field">
+              <span>نام سیستم</span>
+              <input id="system-name" type="text" required />
+            </label>
+          </div>
+          <div class="grid full">
+            <label class="field">
+              <span>تک دسته (ریال/ساعت)</span>
+              <input id="price-1p" type="number" min="0" step="1" />
+            </label>
+            <label class="field">
+              <span>دو دسته (ریال/ساعت)</span>
+              <input id="price-2p" type="number" min="0" step="1" />
+            </label>
+            <label class="field">
+              <span>سه دسته (ریال/ساعت)</span>
+              <input id="price-3p" type="number" min="0" step="1" />
+            </label>
+            <label class="field">
+              <span>چهار دسته (ریال/ساعت)</span>
+              <input id="price-4p" type="number" min="0" step="1" />
+            </label>
+          </div>
+          <div class="grid full">
+            <label class="field">
+              <span>تولد (ریال)</span>
+              <input id="price-birthday" type="number" min="0" step="1" />
+            </label>
+            <label class="field">
+              <span>فیلم (ریال)</span>
+              <input id="price-film" type="number" min="0" step="1" />
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="system-cancel">انصراف</button>
+            <button type="submit" class="btn primary">ذخیره</button>
+          </div>
+          <p id="system-form-msg" class="hint"></p>
+        </form>
+      </div>
+    </div>
+
+    <script src="branches.js"></script>
     <script src="app.js"></script>
   </body>
   </html>
-

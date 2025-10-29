@@ -179,3 +179,13 @@ tbody tr:hover { background: #fff5f6; }
 .modal-card { width: 100%; max-width: 420px; background: #fff; border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); padding: 16px; }
 .modal-card h3 { margin: 0 0 12px; font-size: 16px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+/* Inner (tab) sidebar for شعب management */
+.sub-layout { display: grid; grid-template-columns: 220px 1fr; gap: 16px; }
+.sub-sidebar { border-left: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 12px; height: fit-content; align-self: start; }
+.sub-header { font-weight: 700; padding: 6px 8px 10px; }
+.sub-nav { display: grid; gap: 6px; }
+.sub-item { display: block; width: 100%; text-align: right; padding: 10px 12px; border-radius: 10px; border: 1px solid transparent; background: transparent; cursor: pointer; }
+.sub-item:hover { background: #fafafa; border-color: var(--border); }
+.sub-item.active { background: rgba(225,29,46,0.08); border-color: rgba(225,29,46,0.22); color: var(--primary-600); }
+.sub-content { display: grid; gap: 12px; }
