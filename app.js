@@ -39,7 +39,7 @@ function renderUsers() {
   // Show users that are logged in and have no email
   USER_DB.filter(u => (!u.email || u.email === '') && u.active).forEach(u => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${u.name}</td><td>${u.phone || ''}</td><td>${u.active ? 'فعال' : 'غیرفعال'}</td>`;
+    tr.innerHTML = `<td>${u.name}</td><td>${u.phone || ''}</td><td>${u.active ? '????' : '???????'}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -47,7 +47,7 @@ function renderUsers() {
 function setActiveTab(tab) {
   qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   qsa('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
-  const titles = { home: 'خانه', users: 'کاربران', settings: 'تنظیمات' };
+  const titles = { home: '????', users: '???????', settings: '???????' };
   const el = qs('#page-title');
   if (el) el.textContent = titles[tab] || '';
 }
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setView(true);
       setActiveTab('home');
     } else {
-      err.textContent = 'نام کاربری یا رمز صحیح نیست. لطفاً دوباره تلاش کنید.';
+      err.textContent = '???? ?????? ???. ???? ??????? ?? ????? ????.';
     }
   });
 
@@ -146,15 +146,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const pass = qs('#user-pass').value;
     const msg = qs('#user-form-msg');
     if (!/^\d{11}$/.test(phone)) {
-      msg.textContent = 'شماره موبایل باید ۱۱ رقم باشد.';
+      msg.textContent = '????? ???? ???? ?? ??? ????.';
       return;
     }
     if (!pass || pass.length < 4) {
-      msg.textContent = 'رمز عبور کوتاه یا نامعتبر است.';
+      msg.textContent = '??? ????? ? ??????? ????.';
       return;
     }
     const idx = USER_DB.length + 1;
-    USER_DB.push({ name: `کاربر ${idx}`, phone, email: "", password: pass, active: true });
+    USER_DB.push({ name: `????? ${idx}`, phone, email: "", password: pass, active: true });
     renderUsers();
     updateKpis();
     closeUserModal();
@@ -169,19 +169,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const msg = qs('#privacy-msg');
     const saved = localStorage.getItem(PASS_KEY) || '1234';
     if (cur !== saved) {
-      msg.textContent = 'رمز فعلی صحیح نیست.';
+      msg.textContent = '??? ???? ?????? ???.';
       return;
     }
     if (np.length < 4) {
-      msg.textContent = 'رمز جدید کوتاه یا نامعتبر است.';
+      msg.textContent = '??? ???? ????? ? ??????? ????.';
       return;
     }
     if (np !== cp) {
-      msg.textContent = 'تکرار رمز با رمز جدید برابر نیست.';
+      msg.textContent = '????? ??? ???? ????? ????.';
       return;
     }
     localStorage.setItem(PASS_KEY, np);
-    msg.textContent = 'رمز با موفقیت به‌روزرسانی شد.';
+    msg.textContent = '??? ?? ?????? ??????????? ??.';
   });
 });
 
@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const STR_ZOOM = "\u0628\u0632\u0631\u06AF\u0646\u0645\u0627\u06CC\u06CC";
   const STR_CANCEL = "\u0627\u0646\u0635\u0631\u0627\u0641";
   const STR_SAVE = "\u0630\u062E\u06CC\u0631\u0647";
-  const STR_TIMEZONE = "منطقه زمانی فعلی";
+  const STR_TIMEZONE = "?????? ???? ????";
 
   function ensureStyles(){
     if (document.getElementById('dev-styles')) return;
@@ -537,10 +537,10 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- Users & Permissions extensions ---
 const USERS_KEY = 'gamenet_users';
 const PERMISSION_TABS = {
-  home: { label: 'خانه', parts: ['نمای کلی'] },
-  users: { label: 'کاربران', parts: ['افزودن', 'ویرایش', 'حذف', 'مشاهده', 'دسترسی کاربران'] },
-  branches: { label: 'شعب', parts: ['مدیریت', 'قیمت‌ها/بازه‌ها', 'حذف'] },
-  settings: { label: 'تنظیمات', parts: ['عمومی', 'رمز', 'سایر'] }
+  home: { label: '????', parts: ['????? ???????'] },
+  users: { label: '???????', parts: ['??????', '??????', '??????', '???', '?????? ????'] },
+  branches: { label: '???', parts: ['??????', '??????/?????? ?????', '?????'] },
+  settings: { label: '???????', parts: ['??????', '?????', '????'] }
 };
 
 function loadUsers(){
@@ -589,15 +589,15 @@ function renderUsers(){
   if (!tbody) return;
   tbody.innerHTML = '';
   const headRow = qs('#tab-users thead tr');
-  if (headRow){ headRow.innerHTML = '<th>\u06A9\u062F \u06CC\u06A9\u062A\u0627</th><th>نام و نام خانوادگی</th><th>تلفن/موبایل</th><th>وضعیت</th><th>تنظیمات</th>'; }
+  if (headRow){ headRow.innerHTML = '<th>\u06A9\u062F \u06CC\u06A9\u062A\u0627</th><th>??? ? ??? ????????</th><th>????/??????????</th><th>?????</th><th>???????</th>'; }
   const users = loadUsers().filter(u => !u.email);
   users.forEach(u => {
     const tr = document.createElement('tr');
     const full = `${u.first || ''} ${u.last || ''}`.trim();
-    const status = u.active ? 'فعال' : 'غیرفعال';
+    const status = u.active ? '????' : '???????';
     tr.innerHTML = `<td>${u.code || ''}</td><td>${full}</td><td>${u.phone || ''}</td><td>${status}</td><td>
-      <button class="btn" data-act="edit" data-id="${u.id}">ویرایش</button>
-      <button class="btn" data-act="perm" data-id="${u.id}">دسترسی</button>
+      <button class="btn" data-act="edit" data-id="${u.id}">??????</button>
+      <button class="btn" data-act="perm" data-id="${u.id}">??????</button>
     </td>`;
     tbody.appendChild(tr);
   });
@@ -621,21 +621,21 @@ function ensureUserAndPermModals(){
     const card = um.querySelector('.modal-card');
     if (card){
       card.innerHTML = `
-        <h3 id="user-modal-title">افزودن کاربر</h3>
+        <h3 id="user-modal-title">?????? ?????</h3>
         <form id="user-form" class="form">
           <div class="grid full">
             <label class="field">
-              <span>نام</span>
+              <span>???</span>
               <input id="user-first" type="text" required />
             </label>
             <label class="field">
-              <span>نام خانوادگی</span>
+              <span>??? ????????</span>
               <input id="user-last" type="text" required />
             </label>
           </div>
           <div class="grid full">
             <label class="field">
-              <span>شماره موبایل (11 رقم)</span>
+              <span>????/?????????? (11 ???)</span>
               <input id="user-phone" type="text" inputmode="numeric" pattern="^\\d{11}$" placeholder="09xxxxxxxxx" required />
             </label>
             <label class="field">
@@ -644,12 +644,12 @@ function ensureUserAndPermModals(){
             </label>
           </div>
           <label class="field">
-            <span>رمز عبور</span>
+            <span>???????</span>
             <input id="user-pass" type="password" minlength="4" placeholder="******" />
           </label>
           <div class="modal-actions">
-            <button type="button" class="btn" id="user-cancel">انصراف</button>
-            <button type="submit" class="btn primary" id="user-save">ذخیره</button>
+            <button type="button" class="btn" id="user-cancel">??????</button>
+            <button type="submit" class="btn primary" id="user-save">?????</button>
           </div>
           <p id="user-form-msg" class="hint"></p>
         </form>`;
@@ -664,17 +664,17 @@ function ensureUserAndPermModals(){
     modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true');
     modal.innerHTML = `
       <div class="modal-card large">
-        <h3 id="perm-modal-title">دسترسی‌های کاربر</h3>
+        <h3 id="perm-modal-title">??????? ?????</h3>
         <div class="sub-layout">
           <aside class="sub-sidebar">
-            <div class="sub-header">بخش‌ها</div>
+            <div class="sub-header">?????</div>
             <nav id="perm-subnav" class="sub-nav"></nav>
           </aside>
           <div class="sub-content">
             <div id="perm-content"></div>
             <div class="modal-actions">
-              <button type="button" class="btn" id="perm-cancel">انصراف</button>
-              <button type="button" class="btn primary" id="perm-save">ذخیره</button>
+              <button type="button" class="btn" id="perm-cancel">??????</button>
+              <button type="button" class="btn primary" id="perm-save">?????</button>
             </div>
             <p id="perm-msg" class="hint"></p>
           </div>
@@ -689,7 +689,7 @@ function ensureUserAndPermModals(){
 function openUserModalX(id){
   const users = loadUsers();
   const isEdit = !!id; CURRENT_EDIT_USER = id || null;
-  const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? 'ویرایش کاربر' : 'افزودن کاربر';
+  const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? '?????? ?????' : '?????? ?????';
   const f = qs('#user-first'), l = qs('#user-last'), p = qs('#user-phone'), c = qs('#user-code'), pw = qs('#user-pass');
   const msg = qs('#user-form-msg'); if (msg) msg.textContent = '';
   if (isEdit){
@@ -711,9 +711,9 @@ function onUserFormSubmitX(e){
   const code = qs('#user-code').value.trim();
   const pass = qs('#user-pass').value;
   const msg = qs('#user-form-msg');
-  if (!first || !last){ msg && (msg.textContent = 'نام و نام خانوادگی نمی‌تواند خالی باشد.'); return; }
-  if (!/^\d{11}$/.test(phone)){ msg && (msg.textContent = 'شماره موبایل باید ۱۱ رقم باشد.'); return; }
-  if (!/^\d{5}$/.test(code)){ msg && (msg.textContent = 'کد یکتا ۵ رقمی نیست.'); return; }
+  if (!first || !last){ msg && (msg.textContent = '??? ? ??? ???????? ?????? ???.'); return; }
+  if (!/^\d{11}$/.test(phone)){ msg && (msg.textContent = '????? ???? ???? ?? ??? ????.'); return; }
+  if (!/^\d{5}$/.test(code)){ msg && (msg.textContent = '?? ???? ? ???? ????.'); return; }
   const users = loadUsers();
   if (CURRENT_EDIT_USER){
     const i = users.findIndex(u => u.id === CURRENT_EDIT_USER); if (i === -1) return;
@@ -739,16 +739,7 @@ function openPermModal(id){
       <div class="perm-row">
         <label class="chk"><input type="checkbox" id="${chkId}" ${hasTab?'checked':''}/> ?????? ?? ?? �${def.label}�</label>
         <label class="field">
-          <span>اجزای مجاز</span>
-          <select id="${selId}" multiple></select>
-        </label>
-      </div>`;
-    // Override label text to Persian
-    pane.innerHTML = `
-      <div class="perm-row">
-        <label class="chk"><input type="checkbox" id="${chkId}" ${hasTab?'checked':''}/> فعال‌سازی تب ${def.label}</label>
-        <label class="field">
-          <span>اجزای مجاز</span>
+          <span>???? ??????</span>
           <select id="${selId}" multiple></select>
         </label>
       </div>`;
