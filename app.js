@@ -84,34 +84,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tabs
   qsa('.nav-item').forEach(btn => btn.addEventListener('click', () => setActiveTab(btn.dataset.tab)));
 
-  // Live clock based on configurable offset (default Tehran +03:30)
-  const TIME_OFFSET_KEY = 'gamenet_time_offset_min';
-  function getOffsetMinutes(){
-    const raw = localStorage.getItem(TIME_OFFSET_KEY);
-    const n = raw == null ? NaN : Number(raw);
-    if (!Number.isFinite(n)) return 210; // default Tehran +03:30
-    return n;
-  }
-  function formatOffset(min){
-    const sign = min >= 0 ? '+' : '-';
-    const abs = Math.abs(min);
-    const hh = Math.floor(abs / 60).toString().padStart(2,'0');
-    const mm = (abs % 60).toString().padStart(2,'0');
-    return `GMT${sign}${hh}:${mm}`;
-  }
-  function getAppDate(){
-    const now = new Date();
-    const utcMs = now.getTime() + now.getTimezoneOffset()*60000;
-    const off = getOffsetMinutes();
-    return new Date(utcMs + off*60000);
+  // Live clock using selected timezone; default Tehran (Asia/Tehran)
+  const TIMEZONE_KEY = 'gamenet_timezone';
+  function getTimeZone(){
+    return localStorage.getItem(TIMEZONE_KEY) || 'Asia/Tehran';
   }
   function renderClock(){
     const el = qs('#live-clock'); if (!el) return;
-    const d = getAppDate();
-    const hh = d.getHours().toString().padStart(2,'0');
-    const mm = d.getMinutes().toString().padStart(2,'0');
-    const ss = d.getSeconds().toString().padStart(2,'0');
-    el.textContent = `${hh}:${mm}:${ss} ${formatOffset(getOffsetMinutes())}`;
+    const tz = getTimeZone();
+    const now = new Date();
+    const time = now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute:'2-digit', second:'2-digit', hour12:false, timeZone: tz });
+    const dateFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday:'long', year:'numeric', month:'long', day:'numeric', timeZone: tz }).format(now);
+    el.innerHTML = `<span class="time">${time}</span><span class="date">${dateFa}</span>`;
   }
   renderClock();
   setInterval(renderClock, 1000);
@@ -189,6 +173,8 @@ document.addEventListener('DOMContentLoaded', () => {
 (function(){
   const SITE_TITLE_KEY = 'gamenet_site_title';
   const FAVICON_KEY = 'gamenet_favicon_data';
+  const TIMEZONE_KEY = 'gamenet_timezone';
+  const TIME_OFFSET_KEY = 'gamenet_time_offset_min'; // kept for backward compatibility
 
   const U = (s) => s;
   const STR_DEVELOPER_SETTINGS = "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062A\u0648\u0633\u0639\u0647 \u062F\u0647\u0646\u062F\u0647";
@@ -199,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const STR_ZOOM = "\u0628\u0632\u0631\u06AF\u0646\u0645\u0627\u06CC\u06CC";
   const STR_CANCEL = "\u0627\u0646\u0635\u0631\u0627\u0641";
   const STR_SAVE = "\u0630\u062E\u06CC\u0631\u0647";
+  const STR_TIMEZONE = "اختلاف ساعت محلی";
 
   function ensureStyles(){
     if (document.getElementById('dev-styles')) return;
@@ -299,8 +286,8 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             </div>
             <label class="field">
-              <span>\u0627\u062E\u062A\u0644\u0627\u0641 \u0633\u0627\u0639\u062A \u0645\u062D\u0644\u06CC (\u00B1\u0633\u0627\u0639\u062A:\u062F\u0642\u06CC\u0642\u0647)</span>
-              <input id="time-offset" type="text" inputmode="text" placeholder="+03:30" />
+              <span>${STR_TIMEZONE}</span>
+              <select id="timezone-select"></select>
             </label>
           </div>
         </div>`;
@@ -311,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (card) {
         const actions = document.createElement('div');
         actions.className = 'modal-actions';
-        actions.innerHTML = '<button type=\"button\" class=\"btn primary\" id=\"dev-save\">Save<\/button>';
+        actions.innerHTML = '<button type=\"button\" class=\"btn primary\" id=\"dev-save\">'+STR_SAVE+'<\/button>';
         card.appendChild(actions);
         const msg = document.createElement('p');
         msg.id = 'dev-msg';
@@ -321,17 +308,43 @@ document.addEventListener('DOMContentLoaded', () => {
       // Mark inputs with keys and set initial values
       const st = sec.querySelector('#site-title');
       if (st) st.setAttribute('data-save-key', 'gamenet_site_title');
-      const to = sec.querySelector('#time-offset');
-      if (to) {
-        to.setAttribute('data-save-key', 'gamenet_time_offset_min');
-        const raw = localStorage.getItem('gamenet_time_offset_min');
-        let min = Number(raw);
-        if (!Number.isFinite(min)) min = 210; // default +03:30
-        const sign = min >= 0 ? '+' : '-';
-        const abs = Math.abs(min);
-        const hh = String(Math.floor(abs/60)).padStart(2,'0');
-        const mm = String(abs%60).padStart(2,'0');
-        to.value = `${sign}${hh}:${mm}`;
+      // Populate timezone dropdown
+      const tzSelect = sec.querySelector('#timezone-select');
+      if (tzSelect){
+        const storedTz = localStorage.getItem(TIMEZONE_KEY) || 'Asia/Tehran';
+        function supportedTimeZones(){
+          if (typeof Intl !== 'undefined' && Intl.supportedValuesOf){
+            try { return Intl.supportedValuesOf('timeZone'); } catch { /* fallthrough */ }
+          }
+          return [
+            'Asia/Tehran','Asia/Dubai','Asia/Baghdad','Asia/Qatar','Asia/Kolkata','Asia/Tokyo','Asia/Shanghai',
+            'Europe/Moscow','Europe/Berlin','Europe/Paris','Europe/London','UTC',
+            'Africa/Cairo','Africa/Nairobi',
+            'America/Sao_Paulo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Pacific/Auckland'
+          ];
+        }
+        function tzOffsetLabel(tz){
+          try {
+            const parts = new Intl.DateTimeFormat('en-US',{ timeZone: tz, timeZoneName:'shortOffset'}).formatToParts(new Date());
+            const v = parts.find(p=>p.type==='timeZoneName')?.value || '';
+            return v.startsWith('GMT')?v:('GMT'+v.replace('UTC',''));
+          } catch { return 'GMT'; }
+        }
+        const zones = supportedTimeZones();
+        // Sort by offset then name
+        zones.sort((a,b)=>{
+          const ao = tzOffsetLabel(a).replace('GMT','');
+          const bo = tzOffsetLabel(b).replace('GMT','');
+          return ao.localeCompare(bo) || a.localeCompare(b);
+        });
+        zones.forEach(z=>{
+          const opt = document.createElement('option');
+          const label = z.replace(/_/g,'/');
+          opt.value = z;
+          opt.textContent = `${label} (${tzOffsetLabel(z)})`;
+          if (z === storedTz) opt.selected = true;
+          tzSelect.appendChild(opt);
+        });
       }
       // Save handler
       const saveBtn = sec.querySelector('#dev-save');
@@ -340,18 +353,24 @@ document.addEventListener('DOMContentLoaded', () => {
           const titleVal = String((document.getElementById('site-title')||{}).value || '').trim();
           localStorage.setItem('gamenet_site_title', titleVal);
           if (typeof applyTitle === 'function') applyTitle(titleVal);
-          const offText = String((document.getElementById('time-offset')||{}).value || '').trim();
-          const m = offText.match(/^([+-])?(\\d{1,2})(?::(\\d{2}))?$/);
-          let minutes = 210;
-          if (m) {
-            const sign = m[1] === '-' ? -1 : 1;
-            const hh = parseInt(m[2]||'0', 10);
-            const mm = parseInt(m[3]||'0', 10);
-            minutes = sign * (hh*60 + mm);
-          }
-          localStorage.setItem('gamenet_time_offset_min', String(minutes));
+          const tzSel = document.getElementById('timezone-select');
+          const tz = tzSel ? tzSel.value : 'Asia/Tehran';
+          localStorage.setItem(TIMEZONE_KEY, tz);
+          // Also keep offset minutes for backward compatibility
+          try {
+            const parts = new Intl.DateTimeFormat('en-US',{ timeZone: tz, timeZoneName:'shortOffset'}).formatToParts(new Date());
+            const v = parts.find(p=>p.type==='timeZoneName')?.value || 'GMT+03:30';
+            const m = v.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+            if (m){
+              const sign = m[1] === '-' ? -1 : 1;
+              const hh = parseInt(m[2],10); const mm = parseInt(m[3]||'0',10);
+              const minutes = sign*(hh*60+mm);
+              localStorage.setItem(TIME_OFFSET_KEY, String(minutes));
+            }
+          } catch {}
           const hint = document.getElementById('dev-msg');
-          if (hint) { hint.textContent = 'Saved'; setTimeout(() => hint.textContent = '', 1500); }
+          if (hint) { hint.textContent = '\u0630\u062E\u06CC\u0631\u0647 \u0634\u062F'; setTimeout(() => hint.textContent = '', 1500); }
+          if (typeof renderClock === 'function') renderClock();
         });
       }
     }
@@ -413,15 +432,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (fav) applyFavicon(fav);
 
     // Initialize time-offset input
-    const to = document.getElementById('time-offset');
-    if (to){
-      const min = (function(){ const raw = localStorage.getItem(TIME_OFFSET_KEY); const n = raw==null?NaN:Number(raw); return Number.isFinite(n)?n:210; })();
-      const sign = min >= 0 ? '+' : '-';
-      const abs = Math.abs(min);
-      const hh = String(Math.floor(abs/60)).padStart(2,'0');
-      const mm = String(abs%60).padStart(2,'0');
-      to.value = `${sign}${hh}:${mm}`;
-    }
+    // Default timezone if missing
+    if (!localStorage.getItem(TIMEZONE_KEY)) localStorage.setItem(TIMEZONE_KEY, 'Asia/Tehran');
     // Hook title input
     document.addEventListener('input', (e) => {
       const t = e.target;
@@ -430,23 +442,26 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(SITE_TITLE_KEY, val);
         applyTitle(val);
       }
-      if (t && t.id === 'time-offset'){
-        const raw = String(t.value || '').trim();
-        // Accept "+HH:MM" or "-HH:MM" or plain minutes
-        let min = NaN;
-        const m = raw.match(/^([+-]?)(\d{1,2})(?::(\d{2}))?$/);
-        if (m){
-          const sign = m[1] === '-' ? -1 : 1;
-          const hh = parseInt(m[2],10);
-          const mm = m[3] ? parseInt(m[3],10) : 0;
-          if (hh>=0 && hh<=14 && mm>=0 && mm<60) min = sign*(hh*60+mm);
-        } else if (/^[+-]?\d+$/.test(raw)) {
-          min = parseInt(raw,10);
-        }
-        if (Number.isFinite(min)){
-          localStorage.setItem(TIME_OFFSET_KEY, String(min));
-          renderClock();
-        }
+    });
+    // Timezone change
+    document.addEventListener('change', (e)=>{
+      const t = e.target;
+      if (t && t.id === 'timezone-select'){
+        const tz = t.value || 'Asia/Tehran';
+        localStorage.setItem(TIMEZONE_KEY, tz);
+        // also cache offset minutes for compatibility
+        try {
+          const parts = new Intl.DateTimeFormat('en-US',{ timeZone: tz, timeZoneName:'shortOffset'}).formatToParts(new Date());
+          const v = parts.find(p=>p.type==='timeZoneName')?.value || '';
+          const m = v.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+          if (m){
+            const sign = m[1] === '-' ? -1 : 1;
+            const hh = parseInt(m[2],10); const mm = parseInt(m[3]||'0',10);
+            const minutes = sign*(hh*60+mm);
+            localStorage.setItem(TIME_OFFSET_KEY, String(minutes));
+          }
+        } catch {}
+        renderClock();
       }
     });
 

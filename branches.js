@@ -315,6 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
       birthday: parsePrice(qs('#bulk-birthday').value),
       film: parsePrice(qs('#bulk-film').value)
     };
+    const pid = currentPeriodId || (ensureBranchPeriods(branch).periods[0]?.id);
     const effs = selected.map(id => getEffectivePrices(branch, branch.systems.find(s => s.id === id), pid));
     const allSame = effs.every(p => pricesEqual(p, effs[0]));
     if (!allSame) {
@@ -415,10 +416,34 @@ document.addEventListener('DOMContentLoaded', () => {
         if (items[i-1].end !== items[i].start){ if (msg) msg.textContent='بازه‌ها باید پشت‌سرهم و بدون فاصله باشند.'; return; }
       }
       if (items[items.length-1].end !== 24*60){ if (msg) msg.textContent='آخرین بازه باید در 24:00 پایان یابد.'; return; }
-      branch.periods = items.map(it => ({ id: genId(), start: it.start, end: it.end, defaultPrices: zeroPrices() }));
-      (branch.systems||[]).forEach(s => { s.pricesByPeriod = {}; delete s.prices; });
+      // Map new items to old periods to preserve prices
+      const oldPeriods = [...(branch.periods||[])];
+      const prevPid = currentPeriodId;
+      const mapped = items.map(it => {
+        const mid = Math.floor((it.start + it.end) / 2);
+        let src = oldPeriods.find(op => op.start <= mid && op.end > mid);
+        if (!src){
+          let best = oldPeriods[0], bestLen = -1;
+          for (const op of oldPeriods){
+            const ov = Math.max(0, Math.min(op.end, it.end) - Math.max(op.start, it.start));
+            if (ov > bestLen){ bestLen = ov; best = op; }
+          }
+          src = best;
+        }
+        return { id: genId(), start: it.start, end: it.end, defaultPrices: (src && src.defaultPrices) ? src.defaultPrices : zeroPrices(), _src: src ? src.id : null };
+      });
+      // Commit new periods without helper field
+      branch.periods = mapped.map(({_src, ...rest}) => rest);
+      (branch.systems||[]).forEach(s => {
+        const oldMap = s.pricesByPeriod || {};
+        const newMap = {};
+        mapped.forEach(np => { if (np._src && oldMap[np._src]) newMap[np.id] = oldMap[np._src]; });
+        s.pricesByPeriod = newMap;
+        delete s.prices;
+      });
       saveBranches(branches);
-      currentPeriodId = branch.periods[0]?.id || null;
+      const keep = mapped.find(np => np._src === prevPid);
+      currentPeriodId = (keep && keep.id) || branch.periods[0]?.id || null;
       renderPeriodSelect(branch);
       fillDefaultPricesForm(branch);
       renderSystemsTable(branch);
@@ -569,14 +594,34 @@ document.addEventListener('DOMContentLoaded', () => {
     if (addEl) addEl.onclick = addPeriod;
     const saveEl = qs('#periods-save');
     if (saveEl) saveEl.onclick = () => {
-      const newPeriods = [];
+      const oldPeriods = [...(branch.periods||[])];
+      const prevPid = currentPeriodId;
+      const mapped = [];
       for (let i=0; i<boundaries.length-1; i++){
-        newPeriods.push({ id: genId(), start: boundaries[i], end: boundaries[i+1], defaultPrices: zeroPrices() });
+        const start = boundaries[i], end = boundaries[i+1];
+        const mid = Math.floor((start + end) / 2);
+        let src = oldPeriods.find(op => op.start <= mid && op.end > mid);
+        if (!src){
+          let best = oldPeriods[0], bestLen = -1;
+          for (const op of oldPeriods){
+            const ov = Math.max(0, Math.min(op.end, end) - Math.max(op.start, start));
+            if (ov > bestLen){ bestLen = ov; best = op; }
+          }
+          src = best;
+        }
+        mapped.push({ id: genId(), start, end, defaultPrices: (src && src.defaultPrices) ? src.defaultPrices : zeroPrices(), _src: src ? src.id : null });
       }
-      branch.periods = newPeriods;
-      (branch.systems||[]).forEach(s => { s.pricesByPeriod = {}; delete s.prices; });
+      (branch.systems||[]).forEach(s => {
+        const oldMap = s.pricesByPeriod || {};
+        const newMap = {};
+        mapped.forEach(np => { if (np._src && oldMap[np._src]) newMap[np.id] = oldMap[np._src]; });
+        s.pricesByPeriod = newMap;
+        delete s.prices;
+      });
+      branch.periods = mapped.map(({_src, ...rest}) => rest);
       saveBranches(branches);
-      currentPeriodId = branch.periods[0]?.id || null;
+      const keep = mapped.find(np => np._src === prevPid);
+      currentPeriodId = (keep && keep.id) || branch.periods[0]?.id || null;
       renderPeriodSelect(branch);
       fillDefaultPricesForm(branch);
       renderSystemsTable(branch);
