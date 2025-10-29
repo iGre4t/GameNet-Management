@@ -15,12 +15,12 @@
         <div class="brand">
           <div class="logo">GN</div>
           <h1>پنل مدیریت</h1>
-          <p class="muted">ورود برای ادامه</p>
+          <p class="muted">ورود برای ادامه مدیریت</p>
         </div>
         <form id="login-form" class="form">
           <label class="field">
             <span>نام کاربری</span>
-            <input id="username" type="text" inputmode="text" autocomplete="username" placeholder="مثلاً admin" required />
+            <input id="username" type="text" inputmode="text" autocomplete="username" placeholder="مثال: admin" required />
           </label>
           <label class="field">
             <span>رمز عبور</span>
@@ -42,15 +42,12 @@
         </div>
         <nav class="nav">
           <button class="nav-item active" data-tab="home" aria-current="page">
-            <span class="icon" aria-hidden="true">🏠</span>
             <span>خانه</span>
           </button>
           <button class="nav-item" data-tab="users">
-            <span class="icon" aria-hidden="true">👥</span>
             <span>کاربران</span>
           </button>
           <button class="nav-item" data-tab="settings">
-            <span class="icon" aria-hidden="true">⚙️</span>
             <span>تنظیمات</span>
           </button>
         </nav>
@@ -61,7 +58,7 @@
 
       <main class="content">
         <header class="topbar">
-          <button id="sidebarToggle" class="icon-btn" title="باز/بسته کردن منو" aria-label="باز/بسته کردن منو">☰</button>
+          <button id="sidebarToggle" class="icon-btn" title="کوچک/بزرگ کردن سایدبار" aria-label="کوچک/بزرگ کردن سایدبار">≡</button>
           <h2 id="page-title">خانه</h2>
         </header>
 
@@ -77,14 +74,12 @@
             </div>
             <div class="card kpi">
               <div class="kpi-label">تنظیمات</div>
-              <div class="kpi-value">۳</div>
+              <div class="kpi-value">3</div>
             </div>
           </div>
           <div class="card">
-            <h3>خوش آمدید 👋</h3>
-            <p class="muted">
-              این یک نمونه ساده از پنل مدیریت راست‌به‌چپ با طراحی مدرن است.
-            </p>
+            <h3>خوش آمدید</h3>
+            <p class="muted">این یک نمونه ساده از پنل مدیریت راست‌چین با طراحی مدرن است.</p>
           </div>
         </section>
 
@@ -99,12 +94,11 @@
                 <thead>
                   <tr>
                     <th>نام</th>
-                    <th>ایمیل</th>
+                    <th>تلفن</th>
                     <th>وضعیت</th>
                   </tr>
                 </thead>
-                <tbody id="users-body">
-                </tbody>
+                <tbody id="users-body"></tbody>
               </table>
             </div>
           </div>
@@ -114,22 +108,57 @@
           <div class="card">
             <h3>تنظیمات</h3>
             <div class="form grid">
-              <label class="switch">
-                <input type="checkbox" id="setting-notify" checked />
-                <span>اعلان‌ها فعال باشد</span>
-              </label>
-              <label class="switch">
-                <input type="checkbox" id="setting-compact" />
-                <span>نمایش فشرده</span>
-              </label>
               <label class="field full">
                 <span>عنوان سایت</span>
-                <input id="site-title" type="text" value="پنل مدیریت" />
+                <input id="site-title" type="text" value="گم نت سیستمی" />
               </label>
             </div>
           </div>
+          <div class="card" style="margin-top:12px;">
+            <h3>حریم خصوصی</h3>
+            <form id="privacy-form" class="form">
+              <label class="field">
+                <span>رمز فعلی</span>
+                <input id="current-pass" type="password" autocomplete="current-password" required />
+              </label>
+              <label class="field">
+                <span>رمز جدید</span>
+                <input id="new-pass" type="password" autocomplete="new-password" minlength="4" required />
+              </label>
+              <label class="field">
+                <span>تکرار رمز جدید</span>
+                <input id="confirm-pass" type="password" autocomplete="new-password" minlength="4" required />
+              </label>
+              <div class="modal-actions">
+                <button type="submit" class="btn primary">ذخیره رمز</button>
+              </div>
+              <p id="privacy-msg" class="hint"></p>
+            </form>
+          </div>
         </section>
       </main>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="user-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
+      <div class="modal-card">
+        <h3 id="user-modal-title">افزودن کاربر</h3>
+        <form id="user-form" class="form">
+          <label class="field">
+            <span>شماره تلفن (11 رقم)</span>
+            <input id="user-phone" type="text" inputmode="numeric" pattern="^\d{11}$" placeholder="09xxxxxxxxx" required />
+          </label>
+          <label class="field">
+            <span>رمز عبور</span>
+            <input id="user-pass" type="password" minlength="4" required />
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="user-cancel">انصراف</button>
+            <button type="submit" class="btn primary">افزودن</button>
+          </div>
+          <p id="user-form-msg" class="hint"></p>
+        </form>
+      </div>
     </div>
 
     <script src="app.js"></script>
