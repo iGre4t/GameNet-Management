@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>پنل مدیریت</title>
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Login View -->
+    <main id="login-view" class="view hidden">
+      <section class="auth-card">
+        <div class="brand">
+          <div class="logo">GN</div>
+          <h1>پنل مدیریت</h1>
+          <p class="muted">ورود برای ادامه</p>
+        </div>
+        <form id="login-form" class="form">
+          <label class="field">
+            <span>نام کاربری</span>
+            <input id="username" type="text" inputmode="text" autocomplete="username" placeholder="مثلاً admin" required />
+          </label>
+          <label class="field">
+            <span>رمز عبور</span>
+            <input id="password" type="password" autocomplete="current-password" placeholder="••••" required />
+          </label>
+          <button type="submit" class="btn primary">ورود</button>
+          <p class="hint">نام کاربری: <b>admin</b> — رمز: <b>1234</b></p>
+          <p id="login-error" class="error" role="alert" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+
+    <!-- App View -->
+    <div id="app-view" class="view hidden">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="logo small">GN</div>
+          <div class="title">مدیریت</div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-tab="home" aria-current="page">
+            <span class="icon" aria-hidden="true">🏠</span>
+            <span>خانه</span>
+          </button>
+          <button class="nav-item" data-tab="users">
+            <span class="icon" aria-hidden="true">👥</span>
+            <span>کاربران</span>
+          </button>
+          <button class="nav-item" data-tab="settings">
+            <span class="icon" aria-hidden="true">⚙️</span>
+            <span>تنظیمات</span>
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <button id="logout" class="btn ghost">خروج</button>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <button id="sidebarToggle" class="icon-btn" title="باز/بسته کردن منو" aria-label="باز/بسته کردن منو">☰</button>
+          <h2 id="page-title">خانه</h2>
+        </header>
+
+        <section id="tab-home" class="tab active">
+          <div class="cards">
+            <div class="card kpi">
+              <div class="kpi-label">تعداد کاربران</div>
+              <div class="kpi-value" id="kpi-users">0</div>
+            </div>
+            <div class="card kpi">
+              <div class="kpi-label">کاربران فعال</div>
+              <div class="kpi-value" id="kpi-active">0</div>
+            </div>
+            <div class="card kpi">
+              <div class="kpi-label">تنظیمات</div>
+              <div class="kpi-value">۳</div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>خوش آمدید 👋</h3>
+            <p class="muted">
+              این یک نمونه ساده از پنل مدیریت راست‌به‌چپ با طراحی مدرن است.
+            </p>
+          </div>
+        </section>
+
+        <section id="tab-users" class="tab">
+          <div class="card">
+            <div class="table-header">
+              <h3>کاربران</h3>
+              <button class="btn primary" id="add-user">افزودن کاربر</button>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>نام</th>
+                    <th>ایمیل</th>
+                    <th>وضعیت</th>
+                  </tr>
+                </thead>
+                <tbody id="users-body">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-settings" class="tab">
+          <div class="card">
+            <h3>تنظیمات</h3>
+            <div class="form grid">
+              <label class="switch">
+                <input type="checkbox" id="setting-notify" checked />
+                <span>اعلان‌ها فعال باشد</span>
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="setting-compact" />
+                <span>نمایش فشرده</span>
+              </label>
+              <label class="field full">
+                <span>عنوان سایت</span>
+                <input id="site-title" type="text" value="پنل مدیریت" />
+              </label>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+  </html>
+
