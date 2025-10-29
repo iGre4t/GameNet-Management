@@ -106,8 +106,11 @@ input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(225,29,46
 #app-view.collapsed { grid-template-columns: 72px 1fr; }
 #app-view.collapsed .sidebar .title,
 #app-view.collapsed .nav-item span:not(.icon) { display: none; }
-#app-view.collapsed .sidebar { padding: 16px 8px; }
-#app-view.collapsed .nav-item { justify-content: center; }
+#app-view.collapsed .sidebar { padding: 16px 8px; overflow: hidden; }
+#app-view.collapsed .nav-item { justify-content: center; overflow: hidden; gap: 0; }
+#app-view.collapsed .nav-item span { width: 0; opacity: 0; pointer-events: none; }
+#app-view.collapsed .sidebar-header .title { width: 0; opacity: 0; pointer-events: none; }
+#app-view.collapsed .nav { align-items: center; }
 
 .sidebar {
   border-left: 1px solid var(--border);
