@@ -277,24 +277,26 @@ document.addEventListener('DOMContentLoaded', () => {
       sec.id = 'tab-dev';
       sec.className = 'tab';
       sec.innerHTML = `
-        <div class="card">
-          <h3>${STR_DEVELOPER_SETTINGS}</h3>
-          <div class="form grid">
-            <label class="field full">
-              <span>${STR_SITE_TITLE}</span>
-              <input id="site-title" type="text" value="" placeholder="\u0645\u062B\u0644\u0627\u064B: \u0645\u062F\u06CC\u0631\u06CC\u062A \u06AF\u06CC\u0645\u200C\u0646\u062A" />
-            </label>
-            <div class="field">
-              <span>${STR_FAVICON}</span>
-              <div class="favicon-row">
-                <img id="favicon-preview" class="favicon-icon hidden" alt="favicon" />
-                <button id="open-favicon-modal" class="btn">${STR_SET_CHANGE_FAVICON}</button>
-              </label>`r`n            </div>
-            <label class="field">
-              <span>${STR_TIMEZONE}</span>
-              <select id="timezone-select"></select>
-            </label>
-          </label>`r`n            </div>`;
+  <div class="card">
+    <h3>${STR_DEVELOPER_SETTINGS}</h3>
+    <div class="form grid">
+      <label class="field full">
+        <span>${STR_SITE_TITLE}</span>
+        <input id="site-title" type="text" value="" placeholder="مثال: مدیریت گیم‌نت" />
+      </label>
+      <div class="field">
+        <span>${STR_FAVICON}</span>
+        <div class="favicon-row">
+          <img id="favicon-preview" class="favicon-icon hidden" alt="favicon" />
+          <button id="open-favicon-modal" class="btn">${STR_SET_CHANGE_FAVICON}</button>
+        </div>
+      </div>
+      <label class="field">
+        <span>${STR_TIMEZONE}</span>
+        <select id="timezone-select"></select>
+      </label>
+    </div>
+  </div>`;
       const content = document.querySelector('.content');
       if (content) content.appendChild(sec);
       // Add explicit save button and message
@@ -713,7 +715,7 @@ function ensureUserAndPermModals(){
               <button type="button" class="btn primary" id="perm-save">ذخیره</button>
             </div>
             <p id="perm-msg" class="hint"></p>
-          </label>`r`n            </div>
+          </div>
       </div>`;
     document.body.appendChild(modal);
   }
