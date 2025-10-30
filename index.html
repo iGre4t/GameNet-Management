@@ -133,6 +133,7 @@
                   <div class="field">
                     <span>&nbsp;</span>
                     <button type="submit" class="btn primary">افزودن شعبه</button>
+                    <p id="bulk-msg" class="error hint hidden"></p>
                   </div>
                 </form>
                 <div class="table-wrapper" style="margin-top:12px;">
@@ -361,6 +362,21 @@
         <p id="periods-msg" class="hint"></p>
       </div>
     </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div class="modal-card">
+        <h3 id="confirm-title">تایید عملیات</h3>
+        <p id="confirm-message" class="hint" style="margin:8px 0 0"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="confirm-cancel">انصراف</button>
+          <button type="button" class="btn primary" id="confirm-ok">تایید</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Undo Toast -->
+    <div id="undo-toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script src="branches.js"></script>
     <script src="app.js"></script>

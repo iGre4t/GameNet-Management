@@ -71,6 +71,33 @@ document.addEventListener('DOMContentLoaded', () => {
     qsa('#branches-body button[data-open]').forEach(btn => {
       btn.addEventListener('click', () => showBranchPage(btn.getAttribute('data-open')));
     });
+    // Add delete buttons to branch rows
+    qsa('#branches-body tr').forEach((tr) => {
+      const openBtn = tr.querySelector('button[data-open]');
+      if (!openBtn) return;
+      const id = openBtn.getAttribute('data-open');
+      const tds = tr.querySelectorAll('td');
+      const actionTd = tds[1];
+      if (actionTd && !actionTd.querySelector('[data-del-branch]')){
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn danger';
+        del.textContent = 'حذف';
+        del.setAttribute('data-del-branch', id);
+        del.addEventListener('click', () => {
+          const idx = branches.findIndex(b => b.id === id);
+          const br = branches[idx];
+          if (idx < 0 || !br) return;
+          openConfirm(`حذف شعبه «${br.name}»؟ این عملیات قابل بازگشت است.`, () => {
+            const removed = branches.splice(idx, 1)[0];
+            saveBranches(branches);
+            renderBranchesTable();
+            showUndoToast({ type: 'branch', payload: removed, index: idx });
+          });
+        });
+        actionTd.appendChild(del);
+      }
+    });
   };
 
   const renderSystemsTable = (branch) => {
@@ -94,6 +121,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     qsa('#systems-body button[data-sys]').forEach(btn => {
       btn.addEventListener('click', () => openSystemModal(branch.id, btn.getAttribute('data-sys')));
+    });
+    // Update status cells and add delete buttons using current period
+    qsa('#systems-body .row-select').forEach((ch, idx) => {
+      const tr = ch.closest('tr');
+      if (!tr) return;
+      const tds = tr.querySelectorAll('td');
+      const statusTd = tds[2];
+      const actionTd = tds[3];
+      const pid = currentPeriodId || (ensureBranchPeriods(branch).periods[0]?.id);
+      const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
+      if (sys && statusTd){
+        const hasOverride = !!(sys.pricesByPeriod && sys.pricesByPeriod[pid]);
+        statusTd.textContent = hasOverride ? 'قیمت دلخواه' : 'قیمت پیشفرض';
+      }
+      if (actionTd && !actionTd.querySelector('[data-del-sys]')){
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn danger';
+        del.textContent = 'حذف';
+        del.setAttribute('data-del-sys', ch.dataset.id);
+        del.setAttribute('data-index', String(idx));
+        del.addEventListener('click', () => {
+          const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
+          if (!sys) return;
+          openConfirm(`حذف سیستم «${sys.name}»؟ این عملیات قابل بازگشت است.`, () => {
+            const i = (branch.systems||[]).findIndex(s => s.id === ch.dataset.id);
+            if (i >= 0){
+              const removed = branch.systems.splice(i, 1)[0];
+              saveBranches(branches);
+              renderSystemsTable(branch);
+              showUndoToast({ type: 'system', payload: removed, branchId: branch.id, index: i });
+            }
+          });
+        });
+        actionTd.appendChild(del);
+      }
     });
   };
 
@@ -630,4 +693,87 @@ document.addEventListener('DOMContentLoaded', () => {
     render();
     m.classList.remove('hidden');
   }
+  // ---------- Confirm Modal + Undo Toast + Bulk override ----------
+  let lastUndo = null; // { type, payload, branchId?, index }
+  function openConfirm(message, onConfirm){
+    const m = qs('#confirm-modal');
+    if (!m) { if (confirm(message)) onConfirm && onConfirm(); return; }
+    const msg = qs('#confirm-message'); if (msg) msg.textContent = message || '';
+    m.classList.remove('hidden');
+    const cancel = qs('#confirm-cancel');
+    const ok = qs('#confirm-ok');
+    const cleanup = () => { if (ok) ok.onclick = null; if (cancel) cancel.onclick = null; m.classList.add('hidden'); };
+    if (cancel) cancel.onclick = cleanup;
+    if (ok) ok.onclick = () => { cleanup(); onConfirm && onConfirm(); };
+  }
+
+  function showUndoToast(info){
+    lastUndo = info;
+    const toast = qs('#undo-toast');
+    if (!toast) return;
+    const text = (info.type === 'branch') ? `شعبه «${info.payload?.name || ''}» حذف شد — برای بازگردانی کلیک کنید یا Ctrl+Z` : `سیستم «${info.payload?.name || ''}» حذف شد — برای بازگردانی کلیک کنید یا Ctrl+Z`;
+    toast.textContent = text;
+    toast.classList.remove('hidden');
+  }
+  function hideUndoToast(){ const t = qs('#undo-toast'); if (t) t.classList.add('hidden'); }
+  function performUndo(){
+    if (!lastUndo) return;
+    if (lastUndo.type === 'branch'){
+      const idx = Math.max(0, Number(lastUndo.index)||0);
+      branches.splice(idx, 0, lastUndo.payload);
+      saveBranches(branches);
+      renderBranchesTable();
+    } else if (lastUndo.type === 'system'){
+      const br = branches.find(b => b.id === lastUndo.branchId);
+      if (br){
+        br.systems = br.systems || [];
+        const idx = Math.max(0, Number(lastUndo.index)||0);
+        br.systems.splice(idx, 0, lastUndo.payload);
+        saveBranches(branches);
+        if (currentBranchId === br.id) renderSystemsTable(br);
+      }
+    }
+    lastUndo = null; hideUndoToast();
+  }
+  document.addEventListener('click', (e) => { const t = e.target; if (t && t.id === 'undo-toast'){ performUndo(); } });
+  document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')){ performUndo(); } });
+
+  function setupBulkFormOverride(){
+    const form = qs('#bulk-form');
+    if (!form || form.__customHandlerAttached) return;
+    const clone = form.cloneNode(true);
+    form.parentNode.replaceChild(clone, form);
+    clone.__customHandlerAttached = true;
+    clone.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const branch = branches.find(b => b.id === currentBranchId);
+      if (!branch) return;
+      const bulkMsg = qs('#bulk-msg'); if (bulkMsg) { bulkMsg.textContent = ''; bulkMsg.classList.add('hidden'); }
+      const selected = qsa('#systems-body .row-select:checked').map(ch => ch.dataset.id);
+      if (!selected.length){ if (bulkMsg){ bulkMsg.textContent = 'هیچ سیستمی انتخاب نشده است'; bulkMsg.classList.remove('hidden'); } return; }
+      const targetPrices = {
+        p1: parsePrice(qs('#bulk-1p').value),
+        p2: parsePrice(qs('#bulk-2p').value),
+        p3: parsePrice(qs('#bulk-3p').value),
+        p4: parsePrice(qs('#bulk-4p').value),
+        birthday: parsePrice(qs('#bulk-birthday').value),
+        film: parsePrice(qs('#bulk-film').value)
+      };
+      const pid = currentPeriodId || (ensureBranchPeriods(branch).periods[0]?.id);
+      const effs = selected.map(id => getEffectivePrices(branch, branch.systems.find(s => s.id === id), pid));
+      const allSame = effs.every(p => pricesEqual(p, effs[0]));
+      if (!allSame){ if (bulkMsg){ bulkMsg.textContent = 'سیستم‌های انتخاب شده دارای قیمت/کاربری متفاوتی هستند. ابتدا آنها را یکسان‌سازی کنید یا آگاهانه اقدام را تکرار کنید.'; bulkMsg.classList.remove('hidden'); } return; }
+      selected.forEach(id => {
+        const sys = branch.systems.find(s => s.id === id);
+        if (!sys) return;
+        const def = branch.periods.find(p => p.id === pid)?.defaultPrices || zeroPrices();
+        sys.pricesByPeriod = sys.pricesByPeriod || {};
+        if (pricesEqual(targetPrices, def)) delete sys.pricesByPeriod[pid]; else sys.pricesByPeriod[pid] = targetPrices;
+      });
+      saveBranches(branches);
+      renderSystemsTable(branch);
+    });
+  }
+  // Attach overrides once at load
+  setupBulkFormOverride();
 });
