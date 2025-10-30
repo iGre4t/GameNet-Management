@@ -11,6 +11,17 @@ document.addEventListener('DOMContentLoaded', () => {
   let branches = loadBranches();
   let currentBranchId = null;
   let currentPeriodId = null;
+  let currentBranchInnerTab = 'systems';
+
+  // Ensure new sections exist on branch object
+  function ensureBranchExtras(b){
+    if (!b) return b;
+    b.buffetCategories = Array.isArray(b.buffetCategories) ? b.buffetCategories : [];
+    b.buffetItems = Array.isArray(b.buffetItems) ? b.buffetItems : [];
+    b.kitchenItems = Array.isArray(b.kitchenItems) ? b.kitchenItems : [];
+    b.specialItems = Array.isArray(b.specialItems) ? b.specialItems : [];
+    return b;
+  }
 
   // Period helpers
   const DAY_MIN = 24*60;
@@ -182,6 +193,22 @@ document.addEventListener('DOMContentLoaded', () => {
     renderPeriodSelect(branch);
     fillDefaultPricesForm(branch);
     renderSystemsTable(branch);
+    // Prepare inner tabs content and render other sections
+    (function(){
+      const branch = branches.find(b => b.id === currentBranchId);
+      ensureBranchExtras(branch);
+      const sysSec = qs('#branch-tab-systems');
+      if (sysSec){
+        const bpv = qs('#branch-page-view');
+        [...bpv.children].forEach(ch => { if (ch.classList && ch.classList.contains('card')) sysSec.appendChild(ch); });
+      }
+      // Show systems tab by default
+      const ids = ['systems','buffet','kitchen','special'];
+      ids.forEach(k => { const sec = qs('#branch-tab-'+k); if (sec) sec.classList.toggle('hidden', k !== 'systems'); });
+      renderBuffet(branch);
+      renderKitchen(branch);
+      renderSpecial(branch);
+    })();
   };
 
   // Add branch
@@ -792,4 +819,110 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Attach overrides once at load
   setupBulkFormOverride();
+
+  // -------- Branch inner tabs (systems/buffet/kitchen/special) --------
+  function setBranchInnerTab(key){
+    currentBranchInnerTab = key;
+    qsa('#branch-top-tabs .branch-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.branchTab === key));
+    const ids = ['systems','buffet','kitchen','special'];
+    ids.forEach(k => { const sec = qs('#branch-tab-'+k); if (sec) sec.classList.toggle('hidden', k !== key); });
+  }
+  const __tabs = qs('#branch-top-tabs');
+  if (__tabs){
+    __tabs.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t && t.matches('.branch-tab-btn[data-branch-tab]')) setBranchInnerTab(t.getAttribute('data-branch-tab'));
+    });
+  }
+
+  // ---------- Buffet (categories + items) ----------
+  function renderBuffetCategories(branch){
+    ensureBranchExtras(branch);
+    const sel = qs('#buffet-item-cat');
+    if (sel){
+      sel.innerHTML = '';
+      const optNone = document.createElement('option'); optNone.value = ''; optNone.textContent = '— بدون دسته —'; sel.appendChild(optNone);
+      (branch.buffetCategories||[]).forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
+    }
+  }
+  function renderBuffet(branch){
+    ensureBranchExtras(branch);
+    renderBuffetCategories(branch);
+    const tbody = qs('#buffet-items-body'); if (!tbody) return; tbody.innerHTML = '';
+    (branch.buffetItems||[]).forEach(item => {
+      const tr = document.createElement('tr');
+      const priceText = (Number(item.price)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      const catSel = document.createElement('select'); catSel.setAttribute('data-buffet-item', item.id);
+      const none = document.createElement('option'); none.value=''; none.textContent='— بدون دسته —'; catSel.appendChild(none);
+      (branch.buffetCategories||[]).forEach(c => { const o = document.createElement('option'); o.value=c.id; o.textContent=c.name; catSel.appendChild(o); });
+      catSel.value = item.categoryId || '';
+      tr.innerHTML = `<td>${item.name||''}</td><td>${priceText}</td>`;
+      const ctd = document.createElement('td'); ctd.appendChild(catSel); tr.appendChild(ctd);
+      const act = document.createElement('td'); const del = document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-buffet', item.id); act.appendChild(del); tr.appendChild(act);
+      tbody.appendChild(tr);
+    });
+  }
+  document.addEventListener('submit', (e) => {
+    const t = e.target;
+    if (t && t.id === 'buffet-cat-form'){
+      e.preventDefault(); const name = (qs('#buffet-cat-name')?.value || '').trim(); if (!name) return;
+      const br = branches.find(b => b.id === currentBranchId); if (!br) return; ensureBranchExtras(br);
+      br.buffetCategories.push({ id: genId(), name }); saveBranches(branches); qs('#buffet-cat-name').value=''; renderBuffet(br);
+    }
+    if (t && t.id === 'kitchen-item-form'){
+      e.preventDefault(); const name=(qs('#kitchen-item-name')?.value||'').trim(); const price=parsePrice(qs('#kitchen-item-price')?.value||''); if (!name) return;
+      const br = branches.find(b => b.id === currentBranchId); if (!br) return; ensureBranchExtras(br);
+      br.kitchenItems.push({ id: genId(), name, price }); saveBranches(branches); qs('#kitchen-item-name').value=''; qs('#kitchen-item-price').value=''; renderKitchen(br);
+    }
+    if (t && t.id === 'special-item-form'){
+      e.preventDefault(); const name=(qs('#special-item-name')?.value||'').trim(); const price=parsePrice(qs('#special-item-price')?.value||''); if (!name) return;
+      const br = branches.find(b => b.id === currentBranchId); if (!br) return; ensureBranchExtras(br);
+      br.specialItems.push({ id: genId(), name, price }); saveBranches(branches); qs('#special-item-name').value=''; qs('#special-item-price').value=''; renderSpecial(br);
+    }
+  });
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t && t.id === 'buffet-item-add'){
+      const name=(qs('#buffet-item-name')?.value||'').trim(); const price=parsePrice(qs('#buffet-item-price')?.value||''); const cat=qs('#buffet-item-cat')?.value||''; if (!name) return;
+      const br = branches.find(b => b.id === currentBranchId); if (!br) return; ensureBranchExtras(br);
+      br.buffetItems.push({ id: genId(), name, price, categoryId: cat || null }); saveBranches(branches); qs('#buffet-item-name').value=''; qs('#buffet-item-price').value=''; renderBuffet(br);
+    }
+    if (t && t.matches('button[data-del-buffet]')){
+      const id=t.getAttribute('data-del-buffet'); const br=branches.find(b=>b.id===currentBranchId); if (!br) return; ensureBranchExtras(br);
+      const i=br.buffetItems.findIndex(x=>x.id===id); if(i>=0){ br.buffetItems.splice(i,1); saveBranches(branches); renderBuffet(br);} }
+    if (t && t.matches('button[data-del-kitchen]')){
+      const id=t.getAttribute('data-del-kitchen'); const br=branches.find(b=>b.id===currentBranchId); if (!br) return; ensureBranchExtras(br);
+      const i=br.kitchenItems.findIndex(x=>x.id===id); if(i>=0){ br.kitchenItems.splice(i,1); saveBranches(branches); renderKitchen(br);} }
+    if (t && t.matches('button[data-del-special]')){
+      const id=t.getAttribute('data-del-special'); const br=branches.find(b=>b.id===currentBranchId); if (!br) return; ensureBranchExtras(br);
+      const i=br.specialItems.findIndex(x=>x.id===id); if(i>=0){ br.specialItems.splice(i,1); saveBranches(branches); renderSpecial(br);} }
+  });
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t && t.matches('select[data-buffet-item]')){
+      const id=t.getAttribute('data-buffet-item'); const br=branches.find(b=>b.id===currentBranchId); if (!br) return; ensureBranchExtras(br);
+      const it=br.buffetItems.find(x=>x.id===id); if (it){ it.categoryId = t.value || null; saveBranches(branches); }
+    }
+  });
+
+  function renderKitchen(branch){
+    ensureBranchExtras(branch);
+    const tbody = qs('#kitchen-items-body'); if (!tbody) return; tbody.innerHTML = '';
+    (branch.kitchenItems||[]).forEach(item => {
+      const tr = document.createElement('tr'); const priceText=(Number(item.price)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      tr.innerHTML = `<td>${item.name||''}</td><td>${priceText}</td>`;
+      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-kitchen', item.id); act.appendChild(del); tr.appendChild(act);
+      tbody.appendChild(tr);
+    });
+  }
+  function renderSpecial(branch){
+    ensureBranchExtras(branch);
+    const tbody = qs('#special-items-body'); if (!tbody) return; tbody.innerHTML = '';
+    (branch.specialItems||[]).forEach(item => {
+      const tr = document.createElement('tr'); const priceText=(Number(item.price)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      tr.innerHTML = `<td>${item.name||''}</td><td>${priceText}</td>`;
+      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-special', item.id); act.appendChild(del); tr.appendChild(act);
+      tbody.appendChild(tr);
+    });
+  }
 });

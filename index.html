@@ -151,6 +151,100 @@
 
               <!-- Branch page: default prices + systems list -->
               <div id="branch-page-view" class="hidden">
+                <nav id="branch-top-tabs" class="branch-tabs">
+                  <button class="branch-tab-btn active" data-branch-tab="systems">تعرفه سیستم ها</button>
+                  <button class="branch-tab-btn" data-branch-tab="buffet">بوفه و تنقلات</button>
+                  <button class="branch-tab-btn" data-branch-tab="kitchen">آشپزخانه</button>
+                  <button class="branch-tab-btn" data-branch-tab="special">خدمات ویژه</button>
+                </nav>
+                <div id="branch-tab-systems" class="branch-tab-section"></div>
+                <div id="branch-tab-buffet" class="branch-tab-section hidden">
+                  <div class="card">
+                    <div class="table-header">
+                      <h3>بوفه و تنقلات</h3>
+                      <form id="buffet-cat-form" class="form" style="grid-auto-flow: column; grid-auto-columns: max-content; align-items:center; gap:8px;">
+                        <input id="buffet-cat-name" type="text" placeholder="نام دسته" />
+                        <button type="submit" class="btn">ایجاد دسته</button>
+                      </form>
+                    </div>
+                    <div class="form" style="grid-auto-flow: column; grid-auto-columns: max-content; align-items:end; gap:8px;">
+                      <label class="field" style="margin:0;">
+                        <span>نام آیتم</span>
+                        <input id="buffet-item-name" type="text" placeholder="مثلاً چیپس" />
+                      </label>
+                      <label class="field" style="margin:0;">
+                        <span>قیمت (تومان)</span>
+                        <input id="buffet-item-price" class="price-input" type="text" inputmode="numeric" placeholder="مثلاً ۲۰,۰۰۰" />
+                      </label>
+                      <label class="field" style="margin:0;">
+                        <span>دسته</span>
+                        <select id="buffet-item-cat"></select>
+                      </label>
+                      <button id="buffet-item-add" class="btn primary" type="button">افزودن آیتم</button>
+                    </div>
+                    <div class="table-wrapper" style="margin-top:12px;">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>نام</th>
+                            <th>قیمت (تومان)</th>
+                            <th>دسته</th>
+                            <th>عملیات</th>
+                          </tr>
+                        </thead>
+                        <tbody id="buffet-items-body"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                <div id="branch-tab-kitchen" class="branch-tab-section hidden">
+                  <div class="card">
+                    <div class="table-header">
+                      <h3>آشپزخانه</h3>
+                      <form id="kitchen-item-form" class="form" style="grid-auto-flow: column; grid-auto-columns: max-content; align-items:center; gap:8px;">
+                        <input id="kitchen-item-name" type="text" placeholder="نام آیتم" />
+                        <input id="kitchen-item-price" class="price-input" type="text" inputmode="numeric" placeholder="قیمت (تومان)" />
+                        <button type="submit" class="btn primary">افزودن آیتم</button>
+                      </form>
+                    </div>
+                    <div class="table-wrapper" style="margin-top:12px;">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>نام</th>
+                            <th>قیمت (تومان)</th>
+                            <th>عملیات</th>
+                          </tr>
+                        </thead>
+                        <tbody id="kitchen-items-body"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                <div id="branch-tab-special" class="branch-tab-section hidden">
+                  <div class="card">
+                    <div class="table-header">
+                      <h3>خدمات ویژه</h3>
+                      <form id="special-item-form" class="form" style="grid-auto-flow: column; grid-auto-columns: max-content; align-items:center; gap:8px;">
+                        <input id="special-item-name" type="text" placeholder="نام خدمت" />
+                        <input id="special-item-price" class="price-input" type="text" inputmode="numeric" placeholder="قیمت (تومان)" />
+                        <button type="submit" class="btn primary">افزودن آیتم</button>
+                      </form>
+                    </div>
+                    <div class="table-wrapper" style="margin-top:12px;">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>نام</th>
+                            <th>قیمت (تومان)</th>
+                            <th>عملیات</th>
+                          </tr>
+                        </thead>
+                        <tbody id="special-items-body"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
                 <!-- Default prices of branch -->
                 <div class="card" style="margin-bottom:12px;">
                   <h3>قیمت‌های پیشفرض شعبه</h3>

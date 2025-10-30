@@ -214,6 +214,12 @@ select[multiple] { min-height: 140px; padding: 8px; }
 .sub-item.active { background: rgba(225,29,46,0.08); border-color: rgba(225,29,46,0.22); color: var(--primary-600); }
 .sub-content { display: grid; gap: 12px; }
 
+/* Branch inner top tabs */
+.branch-tabs { display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
+.branch-tab-btn { padding: 10px 12px; border: 1px solid transparent; border-radius: 10px 10px 0 0; background: transparent; cursor: pointer; }
+.branch-tab-btn.active { background: #fff; border-color: var(--border); border-bottom-color: #fff; }
+.branch-tab-section.hidden { display: none; }
+
 /* Bulk bar for systems */
 .bulk-bar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin: 8px 0 12px; flex-wrap: wrap; }
 .bulk-left { display: flex; align-items: center; gap: 10px; }
