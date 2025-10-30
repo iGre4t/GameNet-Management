@@ -116,6 +116,9 @@ select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(225,29,4
 #app-view.collapsed .nav-item span { width: 0; opacity: 0; pointer-events: none; }
 #app-view.collapsed .sidebar-header .title { width: 0; opacity: 0; pointer-events: none; }
 #app-view.collapsed .nav { align-items: center; }
+/* In collapsed mode, remove active bg and center footer button */
+#app-view.collapsed .nav-item.active { background: transparent; border-color: transparent; color: inherit; }
+#app-view.collapsed .sidebar-footer { display: flex; justify-content: center; }
 
 .sidebar {
   border-left: 1px solid var(--border);
@@ -127,6 +130,8 @@ select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(225,29,4
 .sidebar-header { display: flex; align-items: center; gap: 10px; padding: 6px 8px; }
 .logo.small { width: 36px; height: 36px; border-radius: 8px; background: var(--secondary); color: #fff; display: grid; place-items: center; font-weight: 700; }
 .sidebar .title { font-weight: 600; }
+/* Sidebar favicon presentation */
+.sidebar-header img#sidebar-favicon { width:24px; height:24px; border-radius:6px; object-fit: contain; background: transparent; }
 
 .nav { display: grid; gap: 6px; align-content: start; }
 .nav-item {

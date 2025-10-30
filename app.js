@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const style = document.createElement('style');
     style.id = 'dev-styles';
     style.textContent = `
-    .favicon-icon{width:20px;height:20px;border-radius:4px;object-fit:cover}
+    .favicon-icon{width:20px;height:20px;border-radius:4px;object-fit:contain;background:transparent}
     .favicon-row{display:flex;align-items:center;gap:10px}
     .cropper-wrap{width:100%;max-width:256px;aspect-ratio:1/1;border:1px solid var(--border);border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f8f8f8}
     #favicon-canvas{width:100%;height:auto;display:block}
@@ -566,8 +566,8 @@ function renderUserPill(){
   const u = getCurrentUser();
   if (!u){ el.textContent = ''; return; }
   const full = `${u.first || ''} ${u.last || ''}`.trim() || (u.name || '');
-  const initials = (full || '').split(' ').map(s => s[0]).join('').slice(0,2).toUpperCase();
-  el.innerHTML = `<span class="avatar">${initials || 'U'}</span><span class="name">${full}</span>`;
+  // Show only full name (hide initials avatar for now)
+  el.innerHTML = `<span class="name">${full}</span>`;
 }
 
 function genId(){ return Math.random().toString(36).slice(2, 10); }
