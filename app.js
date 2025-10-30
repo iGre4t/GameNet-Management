@@ -568,7 +568,7 @@ function renderUsers(){
   if (!tbody) return;
   tbody.innerHTML = '';
   const headRow = qs('#tab-users thead tr');
-  if (headRow){ headRow.innerHTML = '<th>کد ۵ رقمی</th><th>نام و نام خانوادگی</th><th>تلفن/نام‌کاربری</th><th>وضعیت</th><th>اقدامات</th>'; }
+  if (headRow){ headRow.innerHTML = '<th>کد یکتا</th><th>نام و نام خانوادگی</th><th>تلفن/نام‌کاربری</th><th>وضعیت</th><th>اقدامات</th>'; }
   const users = loadUsers().filter(u => !u.email);
   users.forEach(u => {
     const tr = document.createElement('tr');
@@ -618,7 +618,7 @@ function ensureUserAndPermModals(){
               <input id="user-phone" type="text" inputmode="numeric" pattern="^\\d{11}$" placeholder="09xxxxxxxxx" required />
             </label>
             <label class="field">
-              <span>کد ۵ رقمی (غیرقابل ویرایش)</span>
+              <span>کد یکتا (غیرقابل ویرایش)</span>
               <input id="user-code" type="text" inputmode="numeric" pattern="^\\d{5}$" readonly />
             </label>
           </div>

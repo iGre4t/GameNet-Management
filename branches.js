@@ -695,6 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // ---------- Confirm Modal + Undo Toast + Bulk override ----------
   let lastUndo = null; // { type, payload, branchId?, index }
+  let toastTimer = null;
   function openConfirm(message, onConfirm){
     const m = qs('#confirm-modal');
     if (!m) { if (confirm(message)) onConfirm && onConfirm(); return; }
@@ -713,9 +714,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!toast) return;
     const text = (info.type === 'branch') ? `شعبه «${info.payload?.name || ''}» حذف شد — برای بازگردانی کلیک کنید یا Ctrl+Z` : `سیستم «${info.payload?.name || ''}» حذف شد — برای بازگردانی کلیک کنید یا Ctrl+Z`;
     toast.textContent = text;
+    toast.classList.remove('leaving');
     toast.classList.remove('hidden');
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    toastTimer = setTimeout(() => { hideUndoToast(); }, 3000);
   }
-  function hideUndoToast(){ const t = qs('#undo-toast'); if (t) t.classList.add('hidden'); }
+  function hideUndoToast(){
+    const t = qs('#undo-toast');
+    if (!t) return;
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    if (t.classList.contains('hidden')) return;
+    t.classList.add('leaving');
+    const onEnd = () => {
+      t.removeEventListener('animationend', onEnd);
+      t.classList.add('hidden');
+      t.classList.remove('leaving');
+    };
+    t.addEventListener('animationend', onEnd);
+  }
   function performUndo(){
     if (!lastUndo) return;
     if (lastUndo.type === 'branch'){
