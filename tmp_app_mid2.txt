@@ -1,0 +1,357 @@
+﻿}
+
+function switchPermTab(key){
+  qsa('#perm-subnav .sub-item').forEach(b => b.classList.toggle('active', b.dataset.tab === key));
+  qsa('#perm-content .perm-pane').forEach(p => p.classList.toggle('hidden', p.dataset.tab !== key));
+}
+
+function normalizePermissions(perms){
+  const p = perms && typeof perms === 'object' ? perms : {}; return { tabs: p.tabs || {}, parts: p.parts || {} };
+}
+
+function savePermsFromModal(){
+  if (!CURRENT_PERM_USER) return; const users = loadUsers(); const i = users.findIndex(u => u.id === CURRENT_PERM_USER); if (i === -1) return;
+  const tabs = {}; const parts = {}; Object.keys(PERMISSION_TABS).forEach(k => { const c = qs(`#perm-tab-${k}`); const s = qs(`#perm-parts-${k}`); tabs[k] = !!(c && c.checked); parts[k] = s ? [...s.options].filter(o => o.selected).map(o => o.value) : []; });
+  users[i].permissions = { tabs, parts }; saveUsers(users); qs('#perm-modal')?.classList.add('hidden');
+}
+
+// Wire up after base script listeners
+document.addEventListener('DOMContentLoaded', () => {
+  try { ensureUserAndPermModals(); } catch {}
+  // Ensure schedule button is disabled globally with tooltip
+  try {
+    const schBtnGlobal = qs('#edit-schedule');
+    if (schBtnGlobal) {
+      schBtnGlobal.disabled = true;
+      schBtnGlobal.title = 'بزودی';
+      schBtnGlobal.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+    }
+  } catch {}
+  const addBtn = qs('#add-user'); addBtn && addBtn.addEventListener('click', () => openUserModalX());
+  // Initial render with extended schema
+  try { renderUsers(); updateKpis(); renderUserPill(); } catch {}
+});
+
+
+// Operator weekly schedule modal and helpers
+function ensureScheduleModal(){
+  if (qs('#schedule-modal')) return;
+  const modal = document.createElement('div');
+  modal.id='schedule-modal'; modal.className='modal hidden'; modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true');
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:640px; max-height:80vh; overflow:auto;">
+      <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <h3 style="margin:0;">تنظیم ساعت کاری (هفتگی)</h3>
+        <button type="button" class="icon-btn" id="sch-close" aria-label="بستن">×</button>
+      </div>
+      <div class="form">
+        <label class="field"><span>تعداد بازه‌ها در هر روز</span>
+          <select id="sch-count">
+            <option value="2">2 (یک شیفت کار + یک استراحت)</option>
+            <option value="4">4 (دو شیفت کار + دو استراحت)</option>
+          </select>
+        </label>
+        <div id="sch-grid" class="periods-list"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="sch-cancel">انصراف</button>
+        <button type="button" class="btn primary" id="sch-save">ذخیره</button>
+      </div>
+      <p id="sch-msg" class="hint"></p>
+    </div>`;
+  document.body.appendChild(modal);
+  const close = () => { document.body.style.overflow = ''; qs('#schedule-modal')?.classList.add('hidden'); };
+  qs('#sch-cancel')?.addEventListener('click', close);
+  qs('#sch-close')?.addEventListener('click', close);
+  modal.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') close(); });
+  qs('#sch-save')?.addEventListener('click', saveScheduleFromModal);
+}
+
+const DAYS_FA = ['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
+function defaultWeeklySchedule(intervalCount){
+  const n = (intervalCount === 4) ? 4 : 2;
+  const emptyIntervals = (m) => Array.from({length:m}, (_,i) => ({ start: '09:00', end: i%2===0 ? '13:00' : '17:00' }));
+  return { type: n, days: DAYS_FA.map((d, idx) => ({ day: idx, label: d, intervals: emptyIntervals(n) })) };
+}
+
+function openScheduleModal(id){
+  ensureScheduleModal();
+  const users = loadUsers();
+  const u = users.find(x => x.id === (id || (typeof CURRENT_EDIT_USER !== 'undefined' ? CURRENT_EDIT_USER : '')));
+  if (!u) return;
+  const sched = u.schedule || defaultWeeklySchedule(2);
+  const countSel = qs('#sch-count'); if (countSel) countSel.value = String(sched.type || 2);
+  // New timeline-based renderer
+  if (typeof renderScheduleGridTimeline === 'function') {
+    renderScheduleGridTimeline(sched);
+  } else {
+    renderScheduleGrid(sched);
+  }
+  qs('#schedule-modal')?.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  qs('#sch-count')?.addEventListener('change', (e) => { const n = parseInt(e.target.value, 10) === 4 ? 4 : 2; (typeof renderScheduleGridTimeline==='function'?renderScheduleGridTimeline:renderScheduleGrid)({ type: n, days: defaultWeeklySchedule(n).days }); }, { once: true });
+}
+
+function renderScheduleGrid(sched){
+  const grid = qs('#sch-grid'); if (!grid) return; grid.innerHTML='';
+  const n = (sched.type===4)?4:2;
+  (sched.days||[]).forEach(day => {
+    const item = document.createElement('div');
+    item.className = 'card'; item.style.padding = '10px';
+    const head = document.createElement('div'); head.className='hint'; head.textContent = day.label; item.appendChild(head);
+    const row = document.createElement('div'); row.className='grid full';
+    for (let i=0;i<n;i++){
+      const cur = day.intervals?.[i] || { start:'09:00', end:'13:00' };
+      const startId = `sch-${day.day}-${i}-start`; const endId = `sch-${day.day}-${i}-end`;
+      const f1 = document.createElement('label'); f1.className = 'field'; f1.innerHTML = `<span>شروع ${i+1}</span><input type="time" id="${startId}" value="${cur.start}" />`;
+      const f2 = document.createElement('label'); f2.className = 'field'; f2.innerHTML = `<span>پایان ${i+1}</span><input type="time" id="${endId}" value="${cur.end}" />`;
+      row.appendChild(f1); row.appendChild(f2);
+    }
+    item.appendChild(row); grid.appendChild(item);
+  });
+}
+
+// Timeline-based schedule editor (24h bar with handles)
+// Uses hidden time inputs with same ids so saveScheduleFromModal keeps working
+const DAY_MIN_OP = 24*60;
+function toMinOp(hhmm){
+  if (!hhmm || typeof hhmm !== 'string') return 0;
+  const p = hhmm.split(':');
+  const h = parseInt(p[0]||'0',10); const m = parseInt(p[1]||'0',10);
+  let t = (isNaN(h)?0:h)*60 + (isNaN(m)?0:m);
+  if (!Number.isFinite(t)) t = 0;
+  return Math.max(0, Math.min(DAY_MIN_OP, t));
+}
+function toHHMMOp(min){
+  const x = Math.max(0, Math.min(DAY_MIN_OP, Number(min)||0));
+  const hh = String(Math.floor(x/60)).padStart(2,'0');
+  const mm = String(x%60).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+function renderScheduleGridTimeline(sched){
+  const grid = qs('#sch-grid'); if (!grid) return; grid.innerHTML='';
+  const n = (sched.type===4)?4:2;
+  (sched.days||[]).forEach(day => {
+    const card = document.createElement('div');
+    card.className = 'card'; card.style.padding = '10px';
+    const head = document.createElement('div'); head.className='hint'; head.textContent = day.label; card.appendChild(head);
+
+    const inputsWrap = document.createElement('div'); inputsWrap.className='grid full';
+    const intervals = [];
+    for (let i=0;i<n;i++){
+      const cur = (day.intervals && day.intervals[i]) ? day.intervals[i] : { start:'09:00', end:'13:00' };
+      intervals.push({ start: cur.start, end: cur.end });
+      const f1 = document.createElement('label'); f1.className='field'; f1.style.display='none';
+      f1.innerHTML = `<span>start ${i+1}</span><input type="time" id="sch-${day.day}-${i}-start" value="${cur.start}" />`;
+      const f2 = document.createElement('label'); f2.className='field'; f2.style.display='none';
+      f2.innerHTML = `<span>end ${i+1}</span><input type="time" id="sch-${day.day}-${i}-end" value="${cur.end}" />`;
+      inputsWrap.appendChild(f1); inputsWrap.appendChild(f2);
+    }
+
+    const tl = document.createElement('div'); tl.className='timeline';
+    tl.innerHTML = '<div class="timeline-scale"></div><div class="timeline-track"></div>';
+    card.appendChild(tl);
+    const scaleEl = tl.querySelector('.timeline-scale');
+    const trackEl = tl.querySelector('.timeline-track');
+    const minutesToPct = (min) => (Math.max(0, Math.min(DAY_MIN_OP, min))/DAY_MIN_OP)*100;
+
+    function computeBoundaries(){
+      const vals = [0];
+      intervals.forEach(x => { vals.push(toMinOp(x.start)); vals.push(toMinOp(x.end)); });
+      vals.push(DAY_MIN_OP);
+      const u = Array.from(new Set(vals.sort((a,b)=>a-b)));
+      if (u[0] !== 0) u.unshift(0);
+      if (u[u.length-1] !== DAY_MIN_OP) u.push(DAY_MIN_OP);
+      return u;
+    }
+    let boundaries = computeBoundaries();
+    let edgeMap = {};
+    function rebuildEdgeMap(){
+      edgeMap = {};
+      intervals.forEach((it, idx) => {
+        const s = toMinOp(it.start), e = toMinOp(it.end);
+        const si = boundaries.findIndex(v => v === s);
+        const ei = boundaries.findIndex(v => v === e);
+        if (si>0 && si<boundaries.length-1){ (edgeMap[si] ||= []).push({i:idx, edge:'start'}); }
+        if (ei>0 && ei<boundaries.length-1){ (edgeMap[ei] ||= []).push({i:idx, edge:'end'}); }
+      });
+    }
+    rebuildEdgeMap();
+
+    function renderScale(){
+      if (!scaleEl) return; scaleEl.innerHTML='';
+      for (let h=0; h<=24; h+=2){
+        const pct = (h/24)*100;
+        const tick = document.createElement('div'); tick.className='tick'; tick.style.left = pct+'%'; scaleEl.appendChild(tick);
+        const lab = document.createElement('div'); lab.className='label'; lab.style.left = pct+'%'; lab.textContent = String(h).padStart(2,'0')+':00'; scaleEl.appendChild(lab);
+      }
+    }
+    function isWorkSegment(a,b){
+      const mid = (a+b)/2; return intervals.some(it => toMinOp(it.start) < mid && toMinOp(it.end) > mid);
+    }
+
+    let dragging = null;
+    function renderTrack(){
+      if (!trackEl) return; trackEl.innerHTML='';
+      for (let i=0;i<boundaries.length-1;i++){
+        const a = boundaries[i], b = boundaries[i+1];
+        const seg = document.createElement('div');
+        seg.className = 'timeline-segment' + (isWorkSegment(a,b)? '' : ' alt');
+        seg.style.left = minutesToPct(a)+'%';
+        seg.style.width = (minutesToPct(b)-minutesToPct(a))+'%';
+        const label = document.createElement('div'); label.textContent = `${toHHMMOp(a)} - ${toHHMMOp(b)}`; seg.appendChild(label);
+        trackEl.appendChild(seg);
+      }
+      for (let i=0;i<boundaries.length;i++){
+        const locked = (i===0 || i===boundaries.length-1);
+        const h = document.createElement('div'); h.className='timeline-handle' + (locked?' locked':'');
+        h.style.left = minutesToPct(boundaries[i])+'%';
+        if (!locked){ h.addEventListener('pointerdown', (e)=>startDrag(e,i)); }
+        trackEl.appendChild(h);
+      }
+    }
+    function startDrag(e, idx){
+      e.preventDefault(); const rect = trackEl.getBoundingClientRect();
+      dragging = { index: idx, rect };
+      try { trackEl.setPointerCapture(e.pointerId); } catch {}
+      window.addEventListener('pointermove', onDrag);
+      window.addEventListener('pointerup', endDrag, { once: true });
+    }
+    function onDrag(e){
+      if (!dragging) return; const { index, rect } = dragging;
+      let pct = ((e.clientX - rect.left) / rect.width) * 100;
+      const minGap = 5; // minutes
+      const leftBound = boundaries[index-1] + minGap;
+      const rightBound = boundaries[index+1] - minGap;
+      let min = Math.round((pct/100)*DAY_MIN_OP);
+      min = Math.max(leftBound, Math.min(rightBound, min));
+      boundaries[index] = min;
+      const list = edgeMap[index] || [];
+      list.forEach(({i,edge}) => {
+        const id = edge === 'start' ? `sch-${day.day}-${i}-start` : `sch-${day.day}-${i}-end`;
+        const input = document.getElementById(id);
+        if (input) input.value = toHHMMOp(min);
+        if (edge==='start') intervals[i].start = toHHMMOp(min); else intervals[i].end = toHHMMOp(min);
+      });
+      renderTrack();
+    }
+    function endDrag(){ dragging = null; rebuildEdgeMap(); }
+
+    inputsWrap.addEventListener('input', () => {
+      for (let i=0;i<n;i++){
+        const s = qs(`#sch-${day.day}-${i}-start`)?.value || intervals[i].start;
+        const e = qs(`#sch-${day.day}-${i}-end`)?.value || intervals[i].end;
+        intervals[i] = { start: s, end: e };
+      }
+      boundaries = computeBoundaries(); rebuildEdgeMap(); renderTrack();
+    });
+
+    renderScale(); renderTrack();
+    card.appendChild(inputsWrap);
+    grid.appendChild(card);
+  });
+}
+
+function saveScheduleFromModal(){
+  const users = loadUsers(); const id = (typeof CURRENT_EDIT_USER !== 'undefined') ? CURRENT_EDIT_USER : '';
+  const i = users.findIndex(u => u.id === id); if (i === -1) return;
+  const n = parseInt(qs('#sch-count')?.value || '2', 10) === 4 ? 4 : 2;
+  const days = DAYS_FA.map((d, idx) => {
+    const intervals = [];
+    for (let k=0;k<n;k++){
+      const s = qs(`#sch-${idx}-${k}-start`)?.value || '09:00';
+      const e = qs(`#sch-${idx}-${k}-end`)?.value || '13:00';
+      intervals.push({ start: s, end: e });
+    }
+    return { day: idx, label: d, intervals };
+  });
+  users[i].schedule = { type: n, days };
+  saveUsers(users);
+  document.body.style.overflow = '';
+  qs('#schedule-modal')?.classList.add('hidden');
+}
+
+// Archive helpers and enhanced users table
+const USERS_ARCHIVE_KEY = 'gamenet_users_archive';
+function loadArchivedUsers(){ try { return JSON.parse(localStorage.getItem(USERS_ARCHIVE_KEY) || '[]'); } catch { return []; } }
+function saveArchivedUsers(arr){ localStorage.setItem(USERS_ARCHIVE_KEY, JSON.stringify(arr)); }
+function archiveAndRemoveUser(id){
+  const users = loadUsers(); const idx = users.findIndex(u => u.id === id);
+  if (idx === -1) return;
+  const u = users[idx]; if (u.email) return; // don't remove admin
+  const ok = confirm(`حذف کاربر «${(u.first||'')+' '+(u.last||'')}»؟ سوابق آرشیو می‌شود.`);
+  if (!ok) return;
+  const arch = loadArchivedUsers(); arch.push({ ...u, archivedAt: new Date().toISOString() }); saveArchivedUsers(arch);
+  users.splice(idx,1); saveUsers(users); renderUsers(); updateKpis();
+}
+
+// Override renderUsers to include role and delete action
+(function(){
+  const orig = typeof renderUsers === 'function' ? renderUsers : null;
+  window.renderUsers = function(){
+    const tbody = qs('#users-body'); if (!tbody) return; tbody.innerHTML = '';
+    const headRow = qs('#tab-users thead tr');
+    if (headRow) headRow.innerHTML = '<th>کد ۵ رقمی</th><th>نام و نام خانوادگی</th><th>شماره تماس</th><th>نقش</th><th>وضعیت</th><th>عملیات</th>';
+    const users = loadUsers().filter(u => !u.email);
+    users.forEach(u => {
+      const tr = document.createElement('tr');
+      const full = `${u.first || ''} ${u.last || ''}`.trim();
+      const status = u.active ? 'فعال' : 'غیرفعال';
+      const role = u.type === 'manager' ? 'کاربر مدیر' : 'متصدی';
+      tr.innerHTML = `<td>${u.code || ''}</td><td>${full}</td><td>${u.phone || ''}</td><td>${role}</td><td>${status}</td><td>
+        <button class="btn" data-act="edit" data-id="${u.id}">ویرایش</button>
+        <button class="btn" data-act="perm" data-id="${u.id}">دسترسی‌ها</button>
+        <button class="btn danger" data-act="del" data-id="${u.id}">حذف</button>
+      </td>`;
+      tbody.appendChild(tr);
+    });
+    qsa('#users-body button[data-act]').forEach(b => b.addEventListener('click', () => {
+      const id = b.getAttribute('data-id'); const act = b.getAttribute('data-act');
+      if (act === 'edit') openUserModalX(id);
+      if (act === 'perm') openPermModal(id);
+      if (act === 'del') archiveAndRemoveUser(id);
+    }));
+  };
+})();
+
+// Add Stats tab and move home KPIs to it
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const nav = qs('.nav');
+    if (nav && !nav.querySelector('[data-tab="stats"]')){
+      const btn = document.createElement('button');
+      btn.className = 'nav-item';
+      btn.setAttribute('data-tab','stats');
+      const span = document.createElement('span');
+      span.textContent = 'آمار مدیریت و حسابداری';
+      btn.appendChild(span);
+      btn.addEventListener('click', () => setActiveTab('stats'));
+      const settingsBtn = nav.querySelector('[data-tab="settings"]');
+      if (settingsBtn) nav.insertBefore(btn, settingsBtn); else nav.appendChild(btn);
+    }
+    if (!qs('#tab-stats')){
+      const sec = document.createElement('section');
+      sec.id = 'tab-stats';
+      sec.className = 'tab';
+      const content = qs('.content');
+      if (content){
+        const homeSec = qs('#tab-home');
+        if (homeSec) content.insertBefore(sec, homeSec); else content.appendChild(sec);
+      }
+      const homeCards = qs('#tab-home .cards');
+      if (homeCards) sec.appendChild(homeCards);
+    }
+  } catch {}
+});
+
+// Override setActiveTab to include Stats title
+(function(){
+  const original = typeof setActiveTab === 'function' ? setActiveTab : null;
+  window.setActiveTab = function(tab){
+    qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    qsa('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
+    const titles = { home: 'خانه', stats: 'آمار مدیریت و حسابداری', users: 'کاربران', settings: 'تنظیمات' };
+    const el = qs('#page-title');
+    if (el) el.textContent = titles[tab] || '';
+  };
+})();

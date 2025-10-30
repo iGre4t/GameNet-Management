@@ -1,4 +1,4 @@
-// Branches (تنظیمات شعب)
+// Branches (ØªÙ†Ø¸ÛŒÙ…Ø§Øª Ø´Ø¹Ø¨)
 function qs(sel, root = document) { return root.querySelector(sel); }
 function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
 
@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     b.buffetItems = Array.isArray(b.buffetItems) ? b.buffetItems : [];
     b.kitchenItems = Array.isArray(b.kitchenItems) ? b.kitchenItems : [];
     b.specialItems = Array.isArray(b.specialItems) ? b.specialItems : [];
+    b.printerSystemKey = (typeof b.printerSystemKey === 'string') ? b.printerSystemKey : '';
     return b;
   }
 
@@ -63,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const btn = document.createElement('button');
       btn.className = 'sub-item';
       btn.dataset.view = b.id;
-      btn.textContent = b.name || 'شعبه بی‌نام';
+      btn.textContent = b.name || 'Ø´Ø¹Ø¨Ù‡ Ø¨ÛŒâ€ŒÙ†Ø§Ù…';
       btn.addEventListener('click', () => showBranchPage(b.id));
       wrap.appendChild(btn);
     });
@@ -76,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
     branches.forEach(b => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${b.name}</td><td><button class="btn" data-open="${b.id}">باز کردن</button></td>`;
+      tr.innerHTML = `<td>${b.name}</td><td><button class="btn" data-open="${b.id}">Ø¨Ø§Ø² Ú©Ø±Ø¯Ù†</button></td>`;
       tbody.appendChild(tr);
     });
     qsa('#branches-body button[data-open]').forEach(btn => {
@@ -93,13 +94,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'btn danger';
-        del.textContent = 'حذف';
+        del.textContent = 'Ø­Ø°Ù';
         del.setAttribute('data-del-branch', id);
         del.addEventListener('click', () => {
           const idx = branches.findIndex(b => b.id === id);
           const br = branches[idx];
           if (idx < 0 || !br) return;
-          openConfirm(`حذف شعبه «${br.name}»؟ این عملیات قابل بازگشت است.`, () => {
+          openConfirm(`Ø­Ø°Ù Ø´Ø¹Ø¨Ù‡ Â«${br.name}Â»ØŸ Ø§ÛŒÙ† Ø¹Ù…Ù„ÛŒØ§Øª Ù‚Ø§Ø¨Ù„ Ø¨Ø§Ø²Ú¯Ø´Øª Ø§Ø³Øª.`, () => {
             const removed = branches.splice(idx, 1)[0];
             saveBranches(branches);
             renderBranchesTable();
@@ -117,8 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
     (branch.systems || []).forEach(sys => {
       const tr = document.createElement('tr');
-      const btn = `<button class=\"btn\" data-sys=\"${sys.id}\">تنظیمات</button>`;
-      const status = (sys.prices == null) ? 'قیمت پیشفرض' : 'قیمت دلخواه';
+      const btn = `<button class=\"btn\" data-sys=\"${sys.id}\">ØªÙ†Ø¸ÛŒÙ…Ø§Øª</button>`;
+      const status = (sys.prices == null) ? 'Ù‚ÛŒÙ…Øª Ù¾ÛŒØ´ÙØ±Ø¶' : 'Ù‚ÛŒÙ…Øª Ø¯Ù„Ø®ÙˆØ§Ù‡';
       tr.innerHTML = `<td><input type=\"checkbox\" class=\"row-select\" data-id=\"${sys.id}\" /></td><td>${sys.name}</td><td>${status}</td><td>${btn}</td>`;
       tbody.appendChild(tr);
     });
@@ -144,19 +145,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
       if (sys && statusTd){
         const hasOverride = !!(sys.pricesByPeriod && sys.pricesByPeriod[pid]);
-        statusTd.textContent = hasOverride ? 'قیمت دلخواه' : 'قیمت پیشفرض';
+        statusTd.textContent = hasOverride ? 'Ù‚ÛŒÙ…Øª Ø¯Ù„Ø®ÙˆØ§Ù‡' : 'Ù‚ÛŒÙ…Øª Ù¾ÛŒØ´ÙØ±Ø¶';
       }
       if (actionTd && !actionTd.querySelector('[data-del-sys]')){
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'btn danger';
-        del.textContent = 'حذف';
+        del.textContent = 'Ø­Ø°Ù';
         del.setAttribute('data-del-sys', ch.dataset.id);
         del.setAttribute('data-index', String(idx));
         del.addEventListener('click', () => {
           const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
           if (!sys) return;
-          openConfirm(`حذف سیستم «${sys.name}»؟ این عملیات قابل بازگشت است.`, () => {
+          openConfirm(`Ø­Ø°Ù Ø³ÛŒØ³ØªÙ… Â«${sys.name}Â»ØŸ Ø§ÛŒÙ† Ø¹Ù…Ù„ÛŒØ§Øª Ù‚Ø§Ø¨Ù„ Ø¨Ø§Ø²Ú¯Ø´Øª Ø§Ø³Øª.`, () => {
             const i = (branch.systems||[]).findIndex(s => s.id === ch.dataset.id);
             if (i >= 0){
               const removed = branch.systems.splice(i, 1)[0];
@@ -189,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const p = qs('#branch-page-view');
     if (m && p) { m.classList.add('hidden'); p.classList.remove('hidden'); }
     const t = qs('#branch-page-title');
-    if (t) t.textContent = `شعبه: ${branch.name}`;
+    if (t) t.textContent = `Ø´Ø¹Ø¨Ù‡: ${branch.name}`;
     renderPeriodSelect(branch);
     fillDefaultPricesForm(branch);
     renderSystemsTable(branch);
@@ -203,11 +204,26 @@ document.addEventListener('DOMContentLoaded', () => {
         [...bpv.children].forEach(ch => { if (ch.classList && ch.classList.contains('card')) sysSec.appendChild(ch); });
       }
       // Show systems tab by default
-      const ids = ['systems','buffet','kitchen','special'];
+      const ids = ['systems','buffet','kitchen','special','tech'];
       ids.forEach(k => { const sec = qs('#branch-tab-'+k); if (sec) sec.classList.toggle('hidden', k !== 'systems'); });
       renderBuffet(branch);
       renderKitchen(branch);
       renderSpecial(branch);
+      // ensure tech button exists and set printer key
+      try {
+        const tabs = qs('#branch-top-tabs');
+        if (tabs && !tabs.querySelector('[data-branch-tab="tech"]')){
+          const btn = document.createElement('button');
+          btn.className = 'branch-tab-btn';
+          btn.setAttribute('data-branch-tab','tech');
+          btn.textContent = 'تنظیمات فنی';
+          tabs.appendChild(btn);
+        }
+      } catch {}
+      const keyInput = qs('#printer-system-key');
+      if (keyInput) keyInput.value = branch.printerSystemKey || '';
+      // update currency unit labels for default prices
+      try { setDefaultPricesCurrencyLabels && setDefaultPricesCurrencyLabels(); } catch {}
     })();
   };
 
@@ -268,6 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
     qs('#price-4p').value = formatPrice(eff.p4);
     qs('#price-birthday').value = formatPrice(eff.birthday);
     qs('#price-film').value = formatPrice(eff.film);
+    // adjust modal currency labels to ØªÙˆÙ…Ø§Ù†
+    try { setSystemModalCurrencyLabels && setSystemModalCurrencyLabels(); } catch {}
     form.dataset.branchId = branchId;
     form.dataset.systemId = systemId;
     form.dataset.periodId = pid;
@@ -297,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Validate non-empty and parse
     const values = [ '#price-1p', '#price-2p', '#price-3p', '#price-4p', '#price-birthday', '#price-film' ]
       .map(sel => qs(sel).value.trim());
-    if (values.some(v => v === '')) { (qs('#system-form-msg').textContent = 'همه قیمت‌ها الزامی هستند'); return; }
+    if (values.some(v => v === '')) { (qs('#system-form-msg').textContent = 'Ù‡Ù…Ù‡ Ù‚ÛŒÙ…Øªâ€ŒÙ‡Ø§ Ø§Ù„Ø²Ø§Ù…ÛŒ Ù‡Ø³ØªÙ†Ø¯'); return; }
     const toNum = (v) => { const n = parseInt(String(v).replace(/,/g,''), 10); return isNaN(n) ? 0 : n; };
     const newPrices = {
       p1: toNum(qs('#price-1p').value),
@@ -319,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize on switching to branches tab
   qsa('.nav-item').forEach(btn => btn.addEventListener('click', () => {
     if (btn.dataset.tab === 'branches') {
-      setTimeout(() => setTitle('تنظیمات شعب'), 0);
+      setTimeout(() => setTitle('ØªÙ†Ø¸ÛŒÙ…Ø§Øª Ø´Ø¹Ø¨'), 0);
       renderBranchSubnav();
       showManageView();
     }
@@ -330,6 +348,32 @@ document.addEventListener('DOMContentLoaded', () => {
   const formatPrice = (n) => (Number.isFinite(n) ? n : 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   const parsePrice = (s) => { const n = parseInt(String(s||'').replace(/,/g,''), 10); return isNaN(n) ? 0 : n; };
   const pricesEqual = (a,b) => ['p1','p2','p3','p4','birthday','film'].every(k => Number(a[k]||0) === Number(b[k]||0));
+  // Currency label helpers: switch Ø±ÛŒØ§Ù„ to ØªÙˆÙ…Ø§Ù†
+  function setLabelCurrencyByInputId(id, unit){
+    const input = qs('#'+id);
+    if (!input) return;
+    const label = input.previousElementSibling;
+    if (label && label.tagName && label.tagName.toLowerCase()==='span'){
+      const base = String(label.textContent||'').replace(/\(.*\)/,'').trim();
+      label.textContent = base + ' ('+unit+')';
+    }
+  }
+  function setDefaultPricesCurrencyLabels(){
+    setLabelCurrencyByInputId('def-1p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
+    setLabelCurrencyByInputId('def-2p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
+    setLabelCurrencyByInputId('def-3p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
+    setLabelCurrencyByInputId('def-4p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
+    setLabelCurrencyByInputId('def-birthday','ØªÙˆÙ…Ø§Ù†');
+    setLabelCurrencyByInputId('def-film','ØªÙˆÙ…Ø§Ù†');
+  }
+  function setSystemModalCurrencyLabels(){
+    setLabelCurrencyByInputId('price-1p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
+    setLabelCurrencyByInputId('price-2p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
+    setLabelCurrencyByInputId('price-3p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
+    setLabelCurrencyByInputId('price-4p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
+    setLabelCurrencyByInputId('price-birthday','ØªÙˆÙ…Ø§Ù†');
+    setLabelCurrencyByInputId('price-film','ØªÙˆÙ…Ø§Ù†');
+  }
   const getEffectivePrices = (branch, sys, periodId) => {
     ensureBranchPeriods(branch);
     const def = branch.periods.find(p => p.id === periodId)?.defaultPrices || zeroPrices();
@@ -373,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
     saveBranches(branches);
     const msg = qs('#default-prices-msg');
-    if (msg) { msg.textContent = 'ذخیره شد'; setTimeout(() => msg.textContent = '', 1500); }
+    if (msg) { msg.textContent = 'Ø°Ø®ÛŒØ±Ù‡ Ø´Ø¯'; setTimeout(() => msg.textContent = '', 1500); }
     renderSystemsTable(branch);
   });
 
@@ -396,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const branch = branches.find(b => b.id === currentBranchId);
     if (!branch) return;
     const selected = qsa('#systems-body .row-select:checked').map(ch => ch.dataset.id);
-    if (!selected.length) { alert('هیچ سیستمی انتخاب نشده است'); return; }
+    if (!selected.length) { alert('Ù‡ÛŒÚ† Ø³ÛŒØ³ØªÙ…ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª'); return; }
     const targetPrices = {
       p1: parsePrice(qs('#bulk-1p').value),
       p2: parsePrice(qs('#bulk-2p').value),
@@ -409,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const effs = selected.map(id => getEffectivePrices(branch, branch.systems.find(s => s.id === id), pid));
     const allSame = effs.every(p => pricesEqual(p, effs[0]));
     if (!allSame) {
-      const ok = confirm('سیستم های انتخاب شده دارای قیمت / کاربری متفاوتی می باشند اگر از تغییرات مطمئن هستید ثبت کنید');
+      const ok = confirm('Ø³ÛŒØ³ØªÙ… Ù‡Ø§ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ø´Ø¯Ù‡ Ø¯Ø§Ø±Ø§ÛŒ Ù‚ÛŒÙ…Øª / Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù…ØªÙØ§ÙˆØªÛŒ Ù…ÛŒ Ø¨Ø§Ø´Ù†Ø¯ Ø§Ú¯Ø± Ø§Ø² ØªØºÛŒÛŒØ±Ø§Øª Ù…Ø·Ù…Ø¦Ù† Ù‡Ø³ØªÛŒØ¯ Ø«Ø¨Øª Ú©Ù†ÛŒØ¯');
       if (!ok) return;
     }
     // Apply change; if equals default, store null to mark as default
@@ -465,9 +509,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = document.createElement('div');
       row.className = 'period-row';
       row.innerHTML = `
-        <label class="field"><span>شروع</span><input type="time" class="p-start" required /></label>
-        <label class="field"><span>پایان</span><input type="time" class="p-end" required /></label>
-        <button type="button" class="btn p-remove">×</button>`;
+        <label class="field"><span>Ø´Ø±ÙˆØ¹</span><input type="time" class="p-start" required /></label>
+        <label class="field"><span>Ù¾Ø§ÛŒØ§Ù†</span><input type="time" class="p-end" required /></label>
+        <button type="button" class="btn p-remove">Ã—</button>`;
       row.querySelector('.p-start').value = `${('0'+Math.floor(start/60)).slice(-2)}:${('0'+(start%60)).slice(-2)}`;
       row.querySelector('.p-end').value = `${('0'+Math.floor(end/60)).slice(-2)}:${('0'+(end%60)).slice(-2)}`;
       row.querySelector('.p-remove').onclick = () => { row.remove(); };
@@ -492,20 +536,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saveEl) saveEl.onclick = () => {
       const rows = [...list.querySelectorAll('.period-row')];
       const msg = qs('#periods-msg'); if (msg) msg.textContent='';
-      if (rows.length < 1 || rows.length > 5){ if (msg) msg.textContent='تعداد بازه باید بین ۱ تا ۵ باشد.'; return; }
+      if (rows.length < 1 || rows.length > 5){ if (msg) msg.textContent='ØªØ¹Ø¯Ø§Ø¯ Ø¨Ø§Ø²Ù‡ Ø¨Ø§ÛŒØ¯ Ø¨ÛŒÙ† Û± ØªØ§ Ûµ Ø¨Ø§Ø´Ø¯.'; return; }
       const items = rows.map(r => {
         const s = r.querySelector('.p-start').value.split(':'), e = r.querySelector('.p-end').value.split(':');
         const st = (parseInt(s[0],10)||0)*60 + (parseInt(s[1],10)||0);
         const en = (parseInt(e[0],10)||0)*60 + (parseInt(e[1],10)||0);
         return { start: st, end: en };
       });
-      for (const it of items){ if (!(it.start < it.end)) { if (msg) msg.textContent='هر بازه باید شروع کمتر از پایان داشته باشد.'; return; } }
+      for (const it of items){ if (!(it.start < it.end)) { if (msg) msg.textContent='Ù‡Ø± Ø¨Ø§Ø²Ù‡ Ø¨Ø§ÛŒØ¯ Ø´Ø±ÙˆØ¹ Ú©Ù…ØªØ± Ø§Ø² Ù¾Ø§ÛŒØ§Ù† Ø¯Ø§Ø´ØªÙ‡ Ø¨Ø§Ø´Ø¯.'; return; } }
       items.sort((a,b)=> a.start-b.start);
-      if (items[0].start !== 0){ if (msg) msg.textContent='بازه اول باید از 00:00 شروع شود.'; return; }
+      if (items[0].start !== 0){ if (msg) msg.textContent='Ø¨Ø§Ø²Ù‡ Ø§ÙˆÙ„ Ø¨Ø§ÛŒØ¯ Ø§Ø² 00:00 Ø´Ø±ÙˆØ¹ Ø´ÙˆØ¯.'; return; }
       for (let i=1;i<items.length;i++){
-        if (items[i-1].end !== items[i].start){ if (msg) msg.textContent='بازه‌ها باید پشت‌سرهم و بدون فاصله باشند.'; return; }
+        if (items[i-1].end !== items[i].start){ if (msg) msg.textContent='Ø¨Ø§Ø²Ù‡â€ŒÙ‡Ø§ Ø¨Ø§ÛŒØ¯ Ù¾Ø´Øªâ€ŒØ³Ø±Ù‡Ù… Ùˆ Ø¨Ø¯ÙˆÙ† ÙØ§ØµÙ„Ù‡ Ø¨Ø§Ø´Ù†Ø¯.'; return; }
       }
-      if (items[items.length-1].end !== 24*60){ if (msg) msg.textContent='آخرین بازه باید در 24:00 پایان یابد.'; return; }
+      if (items[items.length-1].end !== 24*60){ if (msg) msg.textContent='Ø¢Ø®Ø±ÛŒÙ† Ø¨Ø§Ø²Ù‡ Ø¨Ø§ÛŒØ¯ Ø¯Ø± 24:00 Ù¾Ø§ÛŒØ§Ù† ÛŒØ§Ø¨Ø¯.'; return; }
       // Map new items to old periods to preserve prices
       const oldPeriods = [...(branch.periods||[])];
       const prevPid = currentPeriodId;
@@ -611,8 +655,8 @@ document.addEventListener('DOMContentLoaded', () => {
         seg.appendChild(label);
         if (boundaries.length > 2){
           const del = document.createElement('button');
-          del.type = 'button'; del.className = 'seg-del'; del.textContent = '×';
-          del.title = 'حذف این بازه';
+          del.type = 'button'; del.className = 'seg-del'; del.textContent = 'Ã—';
+          del.title = 'Ø­Ø°Ù Ø§ÛŒÙ† Ø¨Ø§Ø²Ù‡';
           del.onclick = (ev) => { ev.stopPropagation(); removeSegment(i); };
           seg.appendChild(del);
         }
@@ -739,7 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lastUndo = info;
     const toast = qs('#undo-toast');
     if (!toast) return;
-    const text = (info.type === 'branch') ? `شعبه «${info.payload?.name || ''}» حذف شد — برای بازگردانی کلیک کنید یا Ctrl+Z` : `سیستم «${info.payload?.name || ''}» حذف شد — برای بازگردانی کلیک کنید یا Ctrl+Z`;
+    const text = (info.type === 'branch') ? `Ø´Ø¹Ø¨Ù‡ Â«${info.payload?.name || ''}Â» Ø­Ø°Ù Ø´Ø¯ â€” Ø¨Ø±Ø§ÛŒ Ø¨Ø§Ø²Ú¯Ø±Ø¯Ø§Ù†ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯ ÛŒØ§ Ctrl+Z` : `Ø³ÛŒØ³ØªÙ… Â«${info.payload?.name || ''}Â» Ø­Ø°Ù Ø´Ø¯ â€” Ø¨Ø±Ø§ÛŒ Ø¨Ø§Ø²Ú¯Ø±Ø¯Ø§Ù†ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯ ÛŒØ§ Ctrl+Z`;
     toast.textContent = text;
     toast.classList.remove('leaving');
     toast.classList.remove('hidden');
@@ -793,7 +837,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!branch) return;
       const bulkMsg = qs('#bulk-msg'); if (bulkMsg) { bulkMsg.textContent = ''; bulkMsg.classList.add('hidden'); }
       const selected = qsa('#systems-body .row-select:checked').map(ch => ch.dataset.id);
-      if (!selected.length){ if (bulkMsg){ bulkMsg.textContent = 'هیچ سیستمی انتخاب نشده است'; bulkMsg.classList.remove('hidden'); } return; }
+      if (!selected.length){ if (bulkMsg){ bulkMsg.textContent = 'Ù‡ÛŒÚ† Ø³ÛŒØ³ØªÙ…ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ù†Ø´Ø¯Ù‡ Ø§Ø³Øª'; bulkMsg.classList.remove('hidden'); } return; }
       const targetPrices = {
         p1: parsePrice(qs('#bulk-1p').value),
         p2: parsePrice(qs('#bulk-2p').value),
@@ -805,7 +849,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const pid = currentPeriodId || (ensureBranchPeriods(branch).periods[0]?.id);
       const effs = selected.map(id => getEffectivePrices(branch, branch.systems.find(s => s.id === id), pid));
       const allSame = effs.every(p => pricesEqual(p, effs[0]));
-      if (!allSame){ if (bulkMsg){ bulkMsg.textContent = 'سیستم‌های انتخاب شده دارای قیمت/کاربری متفاوتی هستند. ابتدا آنها را یکسان‌سازی کنید یا آگاهانه اقدام را تکرار کنید.'; bulkMsg.classList.remove('hidden'); } return; }
+      if (!allSame){ if (bulkMsg){ bulkMsg.textContent = 'Ø³ÛŒØ³ØªÙ…â€ŒÙ‡Ø§ÛŒ Ø§Ù†ØªØ®Ø§Ø¨ Ø´Ø¯Ù‡ Ø¯Ø§Ø±Ø§ÛŒ Ù‚ÛŒÙ…Øª/Ú©Ø§Ø±Ø¨Ø±ÛŒ Ù…ØªÙØ§ÙˆØªÛŒ Ù‡Ø³ØªÙ†Ø¯. Ø§Ø¨ØªØ¯Ø§ Ø¢Ù†Ù‡Ø§ Ø±Ø§ ÛŒÚ©Ø³Ø§Ù†â€ŒØ³Ø§Ø²ÛŒ Ú©Ù†ÛŒØ¯ ÛŒØ§ Ø¢Ú¯Ø§Ù‡Ø§Ù†Ù‡ Ø§Ù‚Ø¯Ø§Ù… Ø±Ø§ ØªÚ©Ø±Ø§Ø± Ú©Ù†ÛŒØ¯.'; bulkMsg.classList.remove('hidden'); } return; }
       selected.forEach(id => {
         const sys = branch.systems.find(s => s.id === id);
         if (!sys) return;
@@ -824,7 +868,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function setBranchInnerTab(key){
     currentBranchInnerTab = key;
     qsa('#branch-top-tabs .branch-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.branchTab === key));
-    const ids = ['systems','buffet','kitchen','special'];
+    const ids = ['systems','buffet','kitchen','special','tech'];
     ids.forEach(k => { const sec = qs('#branch-tab-'+k); if (sec) sec.classList.toggle('hidden', k !== key); });
   }
   const __tabs = qs('#branch-top-tabs');
@@ -841,7 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sel = qs('#buffet-item-cat');
     if (sel){
       sel.innerHTML = '';
-      const optNone = document.createElement('option'); optNone.value = ''; optNone.textContent = '— بدون دسته —'; sel.appendChild(optNone);
+      const optNone = document.createElement('option'); optNone.value = ''; optNone.textContent = 'â€” Ø¨Ø¯ÙˆÙ† Ø¯Ø³ØªÙ‡ â€”'; sel.appendChild(optNone);
       (branch.buffetCategories||[]).forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
     }
   }
@@ -853,12 +897,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = document.createElement('tr');
       const priceText = (Number(item.price)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       const catSel = document.createElement('select'); catSel.setAttribute('data-buffet-item', item.id);
-      const none = document.createElement('option'); none.value=''; none.textContent='— بدون دسته —'; catSel.appendChild(none);
+      const none = document.createElement('option'); none.value=''; none.textContent='â€” Ø¨Ø¯ÙˆÙ† Ø¯Ø³ØªÙ‡ â€”'; catSel.appendChild(none);
       (branch.buffetCategories||[]).forEach(c => { const o = document.createElement('option'); o.value=c.id; o.textContent=c.name; catSel.appendChild(o); });
       catSel.value = item.categoryId || '';
-      tr.innerHTML = `<td>${item.name||''}</td><td>${priceText}</td>`;
+      tr.innerHTML = `<td>${item.name||''}</td><td class="price-cell" data-type="buffet" data-id="${item.id}">${priceText}</td>`;
       const ctd = document.createElement('td'); ctd.appendChild(catSel); tr.appendChild(ctd);
-      const act = document.createElement('td'); const del = document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-buffet', item.id); act.appendChild(del); tr.appendChild(act);
+      const act = document.createElement('td'); const del = document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='Ø­Ø°Ù'; del.setAttribute('data-del-buffet', item.id); act.appendChild(del); tr.appendChild(act);
       tbody.appendChild(tr);
     });
   }
@@ -878,6 +922,18 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault(); const name=(qs('#special-item-name')?.value||'').trim(); const price=parsePrice(qs('#special-item-price')?.value||''); if (!name) return;
       const br = branches.find(b => b.id === currentBranchId); if (!br) return; ensureBranchExtras(br);
       br.specialItems.push({ id: genId(), name, price }); saveBranches(branches); qs('#special-item-name').value=''; qs('#special-item-price').value=''; renderSpecial(br);
+    }
+  });
+
+  // Persist tech settings (per branch)
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (t && t.id === 'printer-system-key'){
+      const br = branches.find(b => b.id === currentBranchId);
+      if (!br) return;
+      ensureBranchExtras(br);
+      br.printerSystemKey = String(t.value || '');
+      saveBranches(branches);
     }
   });
   document.addEventListener('click', (e) => {
@@ -904,14 +960,38 @@ document.addEventListener('DOMContentLoaded', () => {
       const it=br.buffetItems.find(x=>x.id===id); if (it){ it.categoryId = t.value || null; saveBranches(branches); }
     }
   });
+  // inline edit price on click for buffet/kitchen/special price cells
+  document.addEventListener('click', (e) => {
+    const td = e.target && e.target.closest && e.target.closest('td.price-cell');
+    if (!td) return;
+    if (td.querySelector('input')) return;
+    const id = td.getAttribute('data-id');
+    const typ = td.getAttribute('data-type');
+    const oldText = (td.textContent||'').trim();
+    const input = document.createElement('input');
+    input.type = 'text'; input.className = 'price-input'; input.value = oldText;
+    td.innerHTML = ''; td.appendChild(input); input.focus(); input.select();
+    const commit = (save) => {
+      const br = branches.find(b => b.id === currentBranchId); if (!br) return; ensureBranchExtras(br);
+      if (save){
+        const val = parsePrice(input.value);
+        if (typ === 'buffet'){ const it=(br.buffetItems||[]).find(x=>x.id===id); if (it) it.price=val; renderBuffet(br); }
+        if (typ === 'kitchen'){ const it=(br.kitchenItems||[]).find(x=>x.id===id); if (it) it.price=val; renderKitchen(br); }
+        if (typ === 'special'){ const it=(br.specialItems||[]).find(x=>x.id===id); if (it) it.price=val; renderSpecial(br); }
+        saveBranches(branches);
+      } else { td.textContent = oldText; }
+    };
+    input.addEventListener('keydown', (ev) => { if (ev.key==='Enter'){ ev.preventDefault(); commit(true); } if (ev.key==='Escape'){ ev.preventDefault(); commit(false); } });
+    input.addEventListener('blur', () => commit(true));
+  });
 
   function renderKitchen(branch){
     ensureBranchExtras(branch);
     const tbody = qs('#kitchen-items-body'); if (!tbody) return; tbody.innerHTML = '';
     (branch.kitchenItems||[]).forEach(item => {
       const tr = document.createElement('tr'); const priceText=(Number(item.price)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-      tr.innerHTML = `<td>${item.name||''}</td><td>${priceText}</td>`;
-      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-kitchen', item.id); act.appendChild(del); tr.appendChild(act);
+      tr.innerHTML = `<td>${item.name||''}</td><td class="price-cell" data-type="kitchen" data-id="${item.id}">${priceText}</td>`;
+      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='Ø­Ø°Ù'; del.setAttribute('data-del-kitchen', item.id); act.appendChild(del); tr.appendChild(act);
       tbody.appendChild(tr);
     });
   }
@@ -920,8 +1000,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const tbody = qs('#special-items-body'); if (!tbody) return; tbody.innerHTML = '';
     (branch.specialItems||[]).forEach(item => {
       const tr = document.createElement('tr'); const priceText=(Number(item.price)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-      tr.innerHTML = `<td>${item.name||''}</td><td>${priceText}</td>`;
-      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-special', item.id); act.appendChild(del); tr.appendChild(act);
+      tr.innerHTML = `<td>${item.name||''}</td><td class="price-cell" data-type="special" data-id="${item.id}">${priceText}</td>`;
+      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='Ø­Ø°Ù'; del.setAttribute('data-del-special', item.id); act.appendChild(del); tr.appendChild(act);
       tbody.appendChild(tr);
     });
   }

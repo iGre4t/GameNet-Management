@@ -99,7 +99,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const tz = getTimeZone();
     const now = new Date();
     const time = now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute:'2-digit', second:'2-digit', hour12:false, timeZone: tz });
-    const dateFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday:'long', year:'numeric', month:'long', day:'numeric', timeZone: tz }).format(now);
+    // Compose Persian (Jalali) date parts explicitly to keep RTL order stable
+    const parts = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone: tz
+    }).formatToParts(now).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
+    // RTL-friendly order: weekday، day month year
+    const dateFa = `${parts.weekday}، ${parts.day} ${parts.month} ${parts.year}`;
     el.innerHTML = `<span class="time">${time}</span><span class="date">${dateFa}</span>`;
   }
   renderClock();
@@ -226,6 +235,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!link){
       link = document.createElement('link');
       link.rel = 'icon';
+      // Ensure the favicon preserves transparency by using PNG
+      link.type = 'image/png';
       document.head.appendChild(link);
     }
     return link;
@@ -449,6 +460,25 @@ document.addEventListener('DOMContentLoaded', () => {
         applyTitle(val);
       }
     });
+    // Explicitly allow inserting normal spaces in the site title input.
+    // This guards against any global handlers that might block the space key.
+    const stEl = document.getElementById('site-title');
+    if (stEl) {
+      stEl.addEventListener('keydown', (ev) => {
+        if (ev.key === ' ') {
+          ev.preventDefault();
+          const el = ev.target;
+          try {
+            const start = (el.selectionStart ?? el.value.length);
+            const end = (el.selectionEnd ?? el.value.length);
+            el.setRangeText(' ', start, end, 'end');
+          } catch {
+            // Fallback for older browsers
+            el.value += ' ';
+          }
+        }
+      });
+    }
     // Timezone change
     document.addEventListener('change', (e)=>{
       const t = e.target;
@@ -485,7 +515,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let offsetX = 0, offsetY = 0;
     let dragging = false; let lastX = 0, lastY = 0;
 
-    function clearCanvas(){ if (!ctx) return; ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+    // Do not paint a background; keep canvas transparent to preserve PNG alpha
+    function clearCanvas(){ if (!ctx) return; ctx.clearRect(0,0,canvas.width,canvas.height); }
     function draw(){ if (!ctx || !hasImage) { clearCanvas(); return; } clearCanvas(); const w = img.width * scale; const h = img.height * scale; const x = (canvas.width - w)/2 + offsetX; const y = (canvas.height - h)/2 + offsetY; ctx.drawImage(img, x, y, w, h); }
     function fitImage(){ if (!img || !canvas) return; const s = Math.min(canvas.width / img.width, canvas.height / img.height); baseScale = s; scale = s; offsetX = 0; offsetY = 0; if (zoom) zoom.value = '1'; draw(); }
 
@@ -496,6 +527,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('favicon-cancel')?.addEventListener('click', closeModal);
     document.getElementById('favicon-save')?.addEventListener('click', () => {
       if (!canvas) return; const out = document.createElement('canvas'); out.width = 64; out.height = 64; const octx = out.getContext('2d'); if (!octx) return; // draw scaled down from preview
+      // Clear to transparent and draw from preview canvas
+      octx.clearRect(0, 0, out.width, out.height);
       octx.drawImage(canvas, 0, 0, out.width, out.height);
       const url = out.toDataURL('image/png');
       localStorage.setItem(FAVICON_KEY, url);

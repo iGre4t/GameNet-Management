@@ -7,6 +7,7 @@
     <meta name="color-scheme" content="light" />
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="styles.css" />
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
   </head>
   <body>
     <!-- Login View -->
@@ -158,6 +159,17 @@
                   <button class="branch-tab-btn" data-branch-tab="special">خدمات ویژه</button>
                 </nav>
                 <div id="branch-tab-systems" class="branch-tab-section"></div>
+                <div id="branch-tab-tech" class="branch-tab-section hidden">
+                  <div class="card">
+                    <h3>تنظیمات فنی شعبه</h3>
+                    <form class="form grid">
+                      <label class="field full">
+                        <span>کلید سیستم پرینتر</span>
+                        <input id="printer-system-key" type="text" placeholder="" />
+                      </label>
+                    </form>
+                  </div>
+                </div>
                 <div id="branch-tab-buffet" class="branch-tab-section hidden">
                   <div class="card">
                     <div class="table-header">
@@ -474,5 +486,6 @@
 
     <script src="branches.js"></script>
     <script src="app.js"></script>
+    <script src="icons-profile.js"></script>
   </body>
   </html>

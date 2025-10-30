@@ -143,10 +143,15 @@ select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(225,29,4
   cursor: pointer;
 }
 .nav-item .icon { width: 20px; text-align: center; }
+.nav-item i.icon { font-size: 20px; line-height: 1; }
 .nav-item:hover { background: #fafafa; border-color: var(--border); }
 .nav-item.active { background: rgba(225,29,46,0.08); border-color: rgba(225,29,46,0.22); color: var(--primary-600); }
 
 .sidebar-footer { padding: 6px 8px; }
+
+/* Profile box at sidebar bottom */
+.profile-box { border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: #fff; display: grid; gap: 8px; }
+.profile-name { font-weight: 600; font-size: 14px; }
 
 .content { padding: 20px; }
 .topbar { display: flex; align-items: center; gap: 12px; padding: 8px 0 18px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
@@ -155,7 +160,7 @@ select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(225,29,4
 .topbar .spacer { flex: 1; }
 .clock { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; display:flex; gap:10px; align-items:baseline; }
 .clock .time { color: var(--primary); font-weight: 700; font-size: 16px; }
-.clock .date { opacity: .8; }
+.clock .date { opacity: .8; direction: rtl; unicode-bidi: isolate; }
 /* User name pill next to clock */
 .user-pill { display:flex; align-items:center; gap:8px; margin-inline-start: 10px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:#fff; color: var(--text); font-size:14px; }
 .user-pill .avatar { width:22px; height:22px; border-radius:50%; background: rgba(225,29,46,0.12); color: var(--primary-600); display:grid; place-items:center; font-size:12px; font-weight:700; }

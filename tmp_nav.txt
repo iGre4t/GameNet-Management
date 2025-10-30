@@ -1,0 +1,40 @@
+          <button class="nav-item active" data-tab="home" aria-current="page">
+            <span>خانه</span>
+          </button>
+          <button class="nav-item" data-tab="users">
+            <span>کاربران</span>
+          </button>
+          <button class="nav-item" data-tab="branches">
+            <span>تنظیمات شعب</span>
+          </button>
+          <button class="nav-item" data-tab="settings">
+            <span>تنظیمات</span>
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <button id="logout" class="btn ghost">خروج</button>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <button id="sidebarToggle" class="icon-btn" title="کوچک/بزرگ کردن سایدبار" aria-label="کوچک/بزرگ کردن سایدبار">≡</button>
+          <h2 id="page-title">خانه</h2>
+          <div class="spacer"></div>
+          <div id="live-clock" class="clock" aria-live="polite"></div>
+          <div id="user-pill" class="user-pill" aria-label="نام کاربر"></div>
+        </header>
+
+        <section id="tab-home" class="tab active">
+          <div class="cards">
+            <div class="card kpi">
+              <div class="kpi-label">تعداد کاربران</div>
+              <div class="kpi-value" id="kpi-users">0</div>
+            </div>
+            <div class="card kpi">
+              <div class="kpi-label">کاربران فعال</div>
+              <div class="kpi-value" id="kpi-active">0</div>
+            </div>
+            <div class="card kpi">
+              <div class="kpi-label">تنظیمات</div>
+              <div class="kpi-value">3</div>

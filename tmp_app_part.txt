@@ -1,0 +1,200 @@
+    .favicon-icon{width:20px;height:20px;border-radius:4px;object-fit:contain;background:transparent}
+    .favicon-row{display:flex;align-items:center;gap:10px}
+    .cropper-wrap{width:100%;max-width:256px;aspect-ratio:1/1;border:1px solid var(--border);border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f8f8f8}
+    #favicon-canvas{width:100%;height:auto;display:block}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureSidebarFavicon(){
+    const hdr = document.querySelector('.sidebar-header');
+    if (!hdr) return null;
+    let img = document.getElementById('sidebar-favicon');
+    if (!img){
+      img = document.createElement('img');
+      img.id = 'sidebar-favicon';
+      img.className = 'favicon-icon hidden';
+      img.alt = 'favicon';
+      const title = hdr.querySelector('.title');
+      hdr.insertBefore(img, title || null);
+    }
+    return img;
+  }
+
+  function getFaviconLink(){
+    let link = document.querySelector('link[rel="icon"]');
+    if (!link){
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    return link;
+  }
+
+  function applyTitle(title){
+    const t = title || '';
+    const sdTitle = document.querySelector('.sidebar .title');
+    if (sdTitle) sdTitle.textContent = t || sdTitle.textContent;
+    if (t) document.title = t;
+    const input = document.getElementById('site-title');
+    if (input && input.value !== t) input.value = t;
+  }
+
+  function applyFavicon(dataUrl){
+    const link = getFaviconLink();
+    const img = ensureSidebarFavicon();
+    const preview = document.getElementById('favicon-preview');
+    if (dataUrl){
+      link.href = dataUrl;
+      if (img){ img.src = dataUrl; img.classList.remove('hidden'); }
+      if (preview){ preview.src = dataUrl; preview.classList.remove('hidden'); }
+    } else {
+      link.href = 'data:,';
+      if (img){ img.src = ''; img.classList.add('hidden'); }
+      if (preview){ preview.src = ''; preview.classList.add('hidden'); }
+    }
+  }
+
+  function injectDevTab(){
+    const nav = document.querySelector('.nav');
+    if (nav && !nav.querySelector('[data-tab="dev"]')){
+      const btn = document.createElement('button');
+      btn.className = 'nav-item';
+      btn.setAttribute('data-tab','dev');
+      const span = document.createElement('span');
+      span.textContent = STR_DEVELOPER_SETTINGS;
+      btn.appendChild(span);
+      btn.addEventListener('click', () => {
+        if (typeof setActiveTab === 'function') setActiveTab('dev');
+        const el = document.getElementById('page-title');
+        if (el) el.textContent = STR_DEVELOPER_SETTINGS;
+      });
+      nav.appendChild(btn);
+    }
+
+    if (!document.getElementById('tab-dev')){
+      const sec = document.createElement('section');
+      sec.id = 'tab-dev';
+      sec.className = 'tab';
+      sec.innerHTML = `
+  <div class="card">
+    <h3>${STR_DEVELOPER_SETTINGS}</h3>
+    <div class="form grid">
+      <label class="field full">
+        <span>${STR_SITE_TITLE}</span>
+        <input id="site-title" type="text" value="" placeholder="????: ?????? ??????" />
+      </label>
+      <div class="field">
+        <span>${STR_FAVICON}</span>
+        <div class="favicon-row">
+          <img id="favicon-preview" class="favicon-icon hidden" alt="favicon" />
+          <button id="open-favicon-modal" class="btn">${STR_SET_CHANGE_FAVICON}</button>
+        </div>
+      </div>
+      <label class="field">
+        <span>${STR_TIMEZONE}</span>
+        <select id="timezone-select"></select>
+      </label>
+    </div>
+  </div>`;
+      const content = document.querySelector('.content');
+      if (content) content.appendChild(sec);
+      // Add explicit save button and message
+      const card = sec.querySelector('.card');
+      if (card) {
+        const actions = document.createElement('div');
+        actions.className = 'modal-actions';
+        actions.innerHTML = '<button type=\"button\" class=\"btn primary\" id=\"dev-save\">'+STR_SAVE+'<\/button>';
+        card.appendChild(actions);
+        const msg = document.createElement('p');
+        msg.id = 'dev-msg';
+        msg.className = 'hint';
+        card.appendChild(msg);
+      }
+      // Mark inputs with keys and set initial values
+      const st = sec.querySelector('#site-title');
+      if (st) st.setAttribute('data-save-key', 'gamenet_site_title');
+      // Populate timezone dropdown
+      const tzSelect = sec.querySelector('#timezone-select');
+      if (tzSelect){
+        const storedTz = localStorage.getItem(TIMEZONE_KEY) || 'Asia/Tehran';
+        function supportedTimeZones(){
+          if (typeof Intl !== 'undefined' && Intl.supportedValuesOf){
+            try { return Intl.supportedValuesOf('timeZone'); } catch { /* fallthrough */ }
+          }
+          return [
+            'Asia/Tehran','Asia/Dubai','Asia/Baghdad','Asia/Qatar','Asia/Kolkata','Asia/Tokyo','Asia/Shanghai',
+            'Europe/Moscow','Europe/Berlin','Europe/Paris','Europe/London','UTC',
+            'Africa/Cairo','Africa/Nairobi',
+            'America/Sao_Paulo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Pacific/Auckland'
+          ];
+        }
+        function tzOffsetLabel(tz){
+          try {
+            const parts = new Intl.DateTimeFormat('en-US',{ timeZone: tz, timeZoneName:'shortOffset'}).formatToParts(new Date());
+            const v = parts.find(p=>p.type==='timeZoneName')?.value || '';
+            return v.startsWith('GMT')?v:('GMT'+v.replace('UTC',''));
+          } catch { return 'GMT'; }
+        }
+        const zones = supportedTimeZones();
+        // Sort by offset then name
+        zones.sort((a,b)=>{
+          const ao = tzOffsetLabel(a).replace('GMT','');
+          const bo = tzOffsetLabel(b).replace('GMT','');
+          return ao.localeCompare(bo) || a.localeCompare(b);
+        });
+        zones.forEach(z=>{
+          const opt = document.createElement('option');
+          const label = z.replace(/_/g,'/');
+          opt.value = z;
+          opt.textContent = `${label} (${tzOffsetLabel(z)})`;
+          if (z === storedTz) opt.selected = true;
+          tzSelect.appendChild(opt);
+        });
+      }
+      // Save handler
+      const saveBtn = sec.querySelector('#dev-save');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          const titleVal = String((document.getElementById('site-title')||{}).value || '').trim();
+          localStorage.setItem('gamenet_site_title', titleVal);
+          if (typeof applyTitle === 'function') applyTitle(titleVal);
+          const tzSel = document.getElementById('timezone-select');
+          const tz = tzSel ? tzSel.value : 'Asia/Tehran';
+          localStorage.setItem(TIMEZONE_KEY, tz);
+          // Also keep offset minutes for backward compatibility
+          try {
+            const parts = new Intl.DateTimeFormat('en-US',{ timeZone: tz, timeZoneName:'shortOffset'}).formatToParts(new Date());
+            const v = parts.find(p=>p.type==='timeZoneName')?.value || 'GMT+03:30';
+            const m = v.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+            if (m){
+              const sign = m[1] === '-' ? -1 : 1;
+              const hh = parseInt(m[2],10); const mm = parseInt(m[3]||'0',10);
+              const minutes = sign*(hh*60+mm);
+              localStorage.setItem(TIME_OFFSET_KEY, String(minutes));
+            }
+          } catch {}
+          const hint = document.getElementById('dev-msg');
+          if (hint) { hint.textContent = '\u0630\u062E\u06CC\u0631\u0647 \u0634\u062F'; setTimeout(() => hint.textContent = '', 1500); }
+          if (typeof renderClock === 'function') renderClock();
+        });
+      }
+    }
+
+    // Remove old site-title field from Settings tab if exists
+    const oldTitleInput = document.querySelector('#tab-settings #site-title');
+    if (oldTitleInput){
+      const container = oldTitleInput.closest('.field');
+      if (container) container.remove();
+    }
+  }
+
+  function injectFaviconModal(){
+    if (document.getElementById('favicon-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'favicon-modal';
+    modal.className = 'modal hidden';
+    modal.setAttribute('role','dialog');
+    modal.setAttribute('aria-modal','true');
+    modal.innerHTML = `
+      <div class="modal-card">
