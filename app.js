@@ -289,14 +289,12 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="favicon-row">
                 <img id="favicon-preview" class="favicon-icon hidden" alt="favicon" />
                 <button id="open-favicon-modal" class="btn">${STR_SET_CHANGE_FAVICON}</button>
-              </div>
-            </div>
+              </label>`r`n            </div>
             <label class="field">
               <span>${STR_TIMEZONE}</span>
               <select id="timezone-select"></select>
             </label>
-          </div>
-        </div>`;
+          </label>`r`n            </div>`;
       const content = document.querySelector('.content');
       if (content) content.appendChild(sec);
       // Add explicit save button and message
@@ -524,232 +522,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initLogic); else initLogic();
 })();
-// --- Users & Permissions: enhancements v2 ---
-// Safe upgrades by extending/mutating instead of replacing top-level declarations
-(() => {
-  // Fix/mutate permission tabs to use requested labels and parts
-  try {
-    if (typeof PERMISSION_TABS === 'object') {
-      PERMISSION_TABS.home = { label: 'خانه', parts: ['نمایش داشبورد'] };
-      PERMISSION_TABS.users = { label: 'کاربران', parts: ['افزودن', 'ویرایش', 'حذف', 'دسترسی‌ها'] };
-      PERMISSION_TABS.branches = { label: 'تنظیمات شعب', parts: ['مدیریت', 'قیمت پیش‌فرض', 'سیستم‌ها'] };
-      PERMISSION_TABS.settings = { label: 'تنظیمات کاربری', parts: ['عنوان سایت', 'حریم خصوصی'] };
-    }
-  } catch {}
-
-  const ARCHIVE_KEY = 'gamenet_users_archive';
-  function loadArchivedUsers(){ try { return JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]'); } catch { return []; } }
-  function saveArchivedUsers(arr){ localStorage.setItem(ARCHIVE_KEY, JSON.stringify(arr)); }
-
-  function nextSequentialCode(existing){
-    let list = existing; try { if (!Array.isArray(list)) list = loadUsers(); } catch {}
-    let max = 0;
-    (list||[]).forEach(u => {
-      if (u && !u.email && typeof u.code === 'string' && u.code !== '00000'){
-        const n = parseInt(u.code, 10);
-        if (Number.isFinite(n) && n > max) max = n;
-      }
-    });
-    const next = Math.max(0, max) + 1;
-    return String(next).padStart(5, '0');
-  }
-
-  const DAYS_FA = ['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
-  function defaultWeeklySchedule(intervalCount){
-    const n = (intervalCount === 4) ? 4 : 2;
-    const emptyIntervals = (m) => Array.from({length:m}, (_,i) => ({ start: '09:00', end: i%2===0 ? '13:00' : '17:00' }));
-    return { type: n, days: DAYS_FA.map((d, idx) => ({ day: idx, label: d, intervals: emptyIntervals(n) })) };
-  }
-
-  function getEffectivePermissions(){
-    const u = getCurrentUser && getCurrentUser();
-    if (!u) return { tabs:{}, parts:{} };
-    if (u.id === 'admin' || u.type === 'manager') return { tabs: { home:true, users:true, branches:true, settings:true, dev:true }, parts: {} };
-    const p = (u.permissions && typeof u.permissions==='object') ? u.permissions : {};
-    return { tabs: p.tabs||{}, parts: p.parts||{} };
-  }
-  function applyPermissionsToNav(){
-    const perms = getEffectivePermissions();
-    qsa('.nav .nav-item').forEach(b => {
-      const tab = b.getAttribute('data-tab');
-      const allowed = (typeof perms.tabs[tab] === 'boolean') ? perms.tabs[tab] : true;
-      b.style.display = allowed ? '' : 'none';
-    });
-  }
-  function applyPermissionsToPage(){
-    const perms = getEffectivePermissions();
-    qsa('[data-perm-part]').forEach(el => {
-      const key = el.getAttribute('data-perm-part')||'';
-      const [tab, part] = key.split(':');
-      const allowedTab = (typeof perms.tabs[tab] === 'boolean') ? perms.tabs[tab] : true;
-      const allowedPart = Array.isArray(perms.parts[tab]) ? perms.parts[tab].includes(part) : true;
-      el.style.display = (allowedTab && allowedPart) ? '' : 'none';
-    });
-  }
-
-  // Override setActiveTab to also apply permissions and correct titles
-  const _orig_setActiveTab = typeof setActiveTab === 'function' ? setActiveTab : null;
-  window.setActiveTab = function(tab){
-    if (_orig_setActiveTab) _orig_setActiveTab(tab); else {
-      qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-      qsa('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
-      const titles = { home: 'خانه', users: 'کاربران', branches: 'تنظیمات شعب', settings: 'تنظیمات کاربری', dev: 'تنظیمات توسعه دهنده' };
-      const el = qs('#page-title'); if (el) el.textContent = titles[tab] || '';
-    }
-    try { applyPermissionsToPage(); } catch {}
-  };
-
-  // Override user modal open to inject type + schedule + sequential code
-  const _orig_openUserModalX = typeof openUserModalX === 'function' ? openUserModalX : null;
-  window.openUserModalX = function(id){
-    // If modal exists but lacks fields, rebuild minimal structure
-    const um = qs('#user-modal');
-    if (um && !qs('#user-type')){
-      const card = um.querySelector('.modal-card');
-      if (card){
-        card.innerHTML = `
-          <h3 id="user-modal-title">افزودن کاربر</h3>
-          <form id="user-form" class="form">
-            <div class="grid full">
-              <label class="field"><span>نام</span><input id="user-first" type="text" required /></label>
-              <label class="field"><span>نام خانوادگی</span><input id="user-last" type="text" required /></label>
-            </div>
-            <div class="grid full">
-              <label class="field"><span>شماره تماس (11 رقم)</span><input id="user-phone" type="text" inputmode="numeric" pattern="^\\d{11}$" placeholder="09xxxxxxxxx" required /></label>
-              <label class="field"><span>کد ۵ رقمی</span><input id="user-code" type="text" inputmode="numeric" pattern="^\\d{5}$" readonly /></label>
-            </div>
-            <div class="grid full">
-              <label class="field"><span>نقش کاربر</span><select id="user-type"><option value="manager">کاربر مدیر</option><option value="operator">متصدی</option></select></label>
-              <div class="field" id="operator-tools" style="display:none;align-items:end;gap:8px;grid-auto-columns:max-content;grid-auto-flow:column;"><span>ساعت کاری (هفتگی)</span><button type="button" id="edit-schedule" class="btn">تنظیم برنامه</button></div>
-            </div>
-            <label class="field"><span>رمز عبور</span><input id="user-pass" type="password" minlength="4" placeholder="******" /></label>
-            <div class="modal-actions"><button type="button" class="btn" id="user-cancel">انصراف</button><button type="submit" class="btn primary" id="user-save">ذخیره</button></div>
-            <p id="user-form-msg" class="hint"></p>
-          </form>`;
-        qs('#user-cancel')?.addEventListener('click', () => qs('#user-modal')?.classList.add('hidden'));
-        qs('#user-form')?.addEventListener('submit', onUserFormSubmitX);
-        qs('#user-type')?.addEventListener('change', (e) => { const tools = qs('#operator-tools'); if (tools) tools.style.display = (e.target.value === 'operator') ? 'grid' : 'none'; });
-        qs('#edit-schedule')?.addEventListener('click', () => openScheduleModal(id));
-      }
-    }
-    const users = loadUsers();
-    const isEdit = !!id; const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? 'ویرایش کاربر' : 'افزودن کاربر';
-    const f = qs('#user-first'), l = qs('#user-last'), p = qs('#user-phone'), c = qs('#user-code'), pw = qs('#user-pass');
-    const typeSel = qs('#user-type'); const tools = qs('#operator-tools'); if (tools) tools.style.display = 'none';
-    const msg = qs('#user-form-msg'); if (msg) msg.textContent = '';
-    if (isEdit){
-      const u = users.find(x => x.id === id); if (!u) return;
-      if (f) f.value = u.first || ''; if (l) l.value = u.last || ''; if (p) p.value = u.phone || '';
-      if (c) c.value = u.code || ''; if (pw) pw.value = '';
-      if (typeSel) typeSel.value = u.type || 'operator'; if (tools) tools.style.display = (u.type === 'operator') ? 'grid' : 'none';
-    } else {
-      if (f) f.value = ''; if (l) l.value = ''; if (p) p.value = '';
-      if (c) c.value = nextSequentialCode(users); if (pw) pw.value = '';
-      if (typeSel) typeSel.value = 'operator'; if (tools) tools.style.display = 'grid';
-    }
-    qs('#user-modal')?.classList.remove('hidden');
-  };
-
-  // Override submit to include type + schedule and validations
-  const _orig_onUserFormSubmitX = typeof onUserFormSubmitX === 'function' ? onUserFormSubmitX : null;
-  window.onUserFormSubmitX = function(e){
-    e.preventDefault();
-    const first = qs('#user-first')?.value?.trim() || '';
-    const last = qs('#user-last')?.value?.trim() || '';
-    const phone = qs('#user-phone')?.value?.trim() || '';
-    const code = qs('#user-code')?.value?.trim() || '';
-    const pass = qs('#user-pass')?.value || '';
-    const type = qs('#user-type')?.value || 'operator';
-    const msg = qs('#user-form-msg');
-    if (!first || !last){ if (msg) msg.textContent = 'نام و نام خانوادگی الزامی است.'; return; }
-    if (!/^\d{11}$/.test(phone)){ if (msg) msg.textContent = 'شماره تماس باید ۱۱ رقمی باشد.'; return; }
-    if (!/^\d{5}$/.test(code)){ if (msg) msg.textContent = 'کد باید ۵ رقمی باشد.'; return; }
-    const users = loadUsers();
-    // editing?
-    const editId = (typeof CURRENT_EDIT_USER !== 'undefined') ? CURRENT_EDIT_USER : null;
-    if (editId){
-      const i = users.findIndex(u => u.id === editId); if (i === -1) return;
-      const old = users[i]; users[i] = { ...old, first, last, phone, type, password: pass ? pass : old.password };
-    } else {
-      const schedule = (type === 'operator') ? defaultWeeklySchedule(2) : null;
-      users.push({ id: Math.random().toString(36).slice(2,10), code, first, last, phone, password: pass || '', active: true, email: '', type, schedule, permissions: { tabs: {}, parts: {} } });
-    }
-    saveUsers(users); renderUsers(); updateKpis(); qs('#user-modal')?.classList.add('hidden');
-  };
-
-  // Override renderUsers to show role + delete
-  const _orig_renderUsers = typeof renderUsers === 'function' ? renderUsers : null;
-  window.renderUsers = function(){
-    const tbody = qs('#users-body'); if (!tbody) return; tbody.innerHTML = '';
-    const headRow = qs('#tab-users thead tr'); if (headRow){ headRow.innerHTML = '<th>کد ۵ رقمی</th><th>نام و نام خانوادگی</th><th>شماره تماس</th><th>نقش</th><th>وضعیت</th><th>عملیات</th>'; }
-    const users = loadUsers().filter(u => !u.email);
-    users.forEach(u => {
-      const tr = document.createElement('tr');
-      const full = `${u.first || ''} ${u.last || ''}`.trim();
-      const status = u.active ? 'فعال' : 'غیرفعال';
-      const role = u.type === 'manager' ? 'کاربر مدیر' : 'متصدی';
-      tr.innerHTML = `<td>${u.code || ''}</td><td>${full}</td><td>${u.phone || ''}</td><td>${role}</td><td>${status}</td><td>
-        <button class="btn" data-act="edit" data-id="${u.id}">ویرایش</button>
-        <button class="btn" data-act="perm" data-id="${u.id}">دسترسی‌ها</button>
-        <button class="btn danger" data-act="del" data-id="${u.id}">حذف</button>
-      </td>`; tbody.appendChild(tr);
-    });
-    qsa('#users-body button[data-act]').forEach(b => b.addEventListener('click', () => {
-      const id = b.getAttribute('data-id'); const act = b.getAttribute('data-act');
-      if (act === 'edit') openUserModalX(id);
-      if (act === 'perm') openPermModal(id);
-      if (act === 'del') {
-        const users = loadUsers(); const i = users.findIndex(u => u.id === id); if (i !== -1 && !users[i].email){
-          const u = users[i]; if (!confirm(`حذف کاربر «${(u.first||'')+' '+(u.last||'')}»؟ سوابق آرشیو می‌شود.`)) return;
-          const arch = loadArchivedUsers(); arch.push({ ...u, archivedAt: new Date().toISOString() }); saveArchivedUsers(arch);
-          users.splice(i,1); saveUsers(users); renderUsers(); updateKpis();
-        }
-      }
-    }));
-  };
-
-  // Schedule modal helpers
-  function ensureScheduleModal(){ if (qs('#schedule-modal')) return; const modal = document.createElement('div'); modal.id='schedule-modal'; modal.className='modal hidden'; modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true'); modal.innerHTML = `
-    <div class="modal-card" style="max-width:760px;">
-      <h3>تنظیم ساعت کاری (هفتگی)</h3>
-      <div class="form">
-        <label class="field"><span>تعداد بازه‌ها در هر روز</span><select id="sch-count"><option value="2">2 (یک شیفت کار + یک استراحت)</option><option value="4">4 (دو شیفت کار + دو استراحت)</option></select></label>
-        <div id="sch-grid" class="grid full"></div>
-      </div>
-      <div class="modal-actions"><button type="button" class="btn" id="sch-cancel">انصراف</button><button type="button" class="btn primary" id="sch-save">ذخیره</button></div>
-      <p id="sch-msg" class="hint"></p>
-    </div>`; document.body.appendChild(modal); qs('#sch-cancel')?.addEventListener('click', () => qs('#schedule-modal')?.classList.add('hidden')); qs('#sch-save')?.addEventListener('click', saveScheduleFromModal); }
-  function openScheduleModal(id){ ensureScheduleModal(); const users = loadUsers(); const u = users.find(x => x.id === (id || (typeof CURRENT_EDIT_USER !== 'undefined' ? CURRENT_EDIT_USER : ''))); if (!u) return; const sched = u.schedule || defaultWeeklySchedule(2); const countSel = qs('#sch-count'); if (countSel) countSel.value = String(sched.type || 2); renderScheduleGrid(sched); qs('#schedule-modal')?.classList.remove('hidden'); qs('#sch-count')?.addEventListener('change', (e) => { const n = parseInt(e.target.value, 10) === 4 ? 4 : 2; renderScheduleGrid({ type: n, days: defaultWeeklySchedule(n).days }); }, { once: true }); }
-  function renderScheduleGrid(sched){ const grid = qs('#sch-grid'); if (!grid) return; grid.innerHTML=''; const n = (sched.type===4)?4:2; (sched.days||[]).forEach(day => { const row = document.createElement('div'); row.className='grid full'; const label = document.createElement('div'); label.className='field'; label.innerHTML = `<span>${day.label}</span>`; row.appendChild(label); for (let i=0;i<n;i++){ const cur = day.intervals?.[i] || { start:'09:00', end:'13:00' }; const startId = `sch-${day.day}-${i}-start`; const endId = `sch-${day.day}-${i}-end`; const f1 = document.createElement('label'); f1.className='field'; f1.innerHTML = `<span>شروع ${i+1}</span><input type="time" id="${startId}" value="${cur.start}" />`; const f2 = document.createElement('label'); f2.className='field'; f2.innerHTML = `<span>پایان ${i+1}</span><input type="time" id="${endId}" value="${cur.end}" />`; row.appendChild(f1); row.appendChild(f2);} grid.appendChild(row); }); }
-  function saveScheduleFromModal(){ const users = loadUsers(); const id = (typeof CURRENT_EDIT_USER !== 'undefined') ? CURRENT_EDIT_USER : ''; const i = users.findIndex(u => u.id === id); if (i === -1) return; const n = parseInt(qs('#sch-count')?.value || '2', 10) === 4 ? 4 : 2; const days = DAYS_FA.map((d, idx) => { const intervals = []; for (let k=0;k<n;k++){ const s = qs(`#sch-${idx}-${k}-start`)?.value || '09:00'; const e = qs(`#sch-${idx}-${k}-end`)?.value || '13:00'; intervals.push({ start: s, end: e }); } return { day: idx, label: d, intervals }; }); users[i].schedule = { type: n, days }; saveUsers(users); qs('#schedule-modal')?.classList.add('hidden'); }
-
-  // Add enhanced login for normal users (by phone or 5-digit code)
-  document.addEventListener('DOMContentLoaded', () => {
-    try { applyPermissionsToNav(); applyPermissionsToPage(); } catch {}
-    // Rename settings in sidebar to "تنظیمات کاربری"
-    try { const s = document.querySelector('.nav [data-tab="settings"] span'); if (s) s.textContent = 'تنظیمات کاربری'; } catch {}
-    // Mark default prices form as a protected part under branches
-    try { const f = document.getElementById('default-prices-form'); if (f) f.setAttribute('data-perm-part', 'branches:قیمت پیش‌فرض'); } catch {}
-    const form = qs('#login-form');
-    form?.addEventListener('submit', (e) => {
-      if (localStorage.getItem(AUTH_KEY) === 'ok' && (localStorage.getItem(CURRENT_USER_KEY) === 'admin')) return;
-      const user = qs('#username')?.value?.trim() || '';
-      const pass = qs('#password')?.value || '';
-      const err = qs('#login-error');
-      const users = loadUsers();
-      const found = users.find(u => (!u.email) && (u.phone === user || u.code === user));
-      if (found && found.active && String(found.password || '') === pass){
-        e.preventDefault();
-        localStorage.setItem(AUTH_KEY, 'ok');
-        try { localStorage.setItem(CURRENT_USER_KEY, found.id); } catch {}
-        if (err) err.textContent = '';
-        setView(true);
-        setActiveTab('home');
-        try { renderUserPill(); applyPermissionsToNav(); applyPermissionsToPage(); } catch {}
-      }
-    });
-  });
-})();
 // --- Users & Permissions extensions ---
 const USERS_KEY = 'gamenet_users';
 const PERMISSION_TABS = {
@@ -797,13 +569,18 @@ function renderUserPill(){
 }
 
 function genId(){ return Math.random().toString(36).slice(2, 10); }
+// Next 5-digit sequential code starting from 00001 by creation order
 function genCode(existing){
-  const used = new Set(existing.map(u => u.code));
-  for (let i=0;i<10000;i++){
-    const c = Math.floor(Math.random()*100000).toString().padStart(5,'0');
-    if (!used.has(c)) return c;
-  }
-  return (Date.now()%100000).toString().padStart(5,'0');
+  const list = Array.isArray(existing) ? existing : loadUsers();
+  let max = 0;
+  (list || []).forEach(u => {
+    if (u && !u.email && typeof u.code === 'string' && u.code !== '00000'){
+      const n = parseInt(u.code, 10);
+      if (Number.isFinite(n) && n > max) max = n;
+    }
+  });
+  const next = Math.max(0, max) + 1;
+  return String(next).padStart(5, '0');
 }
 
 // Override KPI and user rendering to use localStorage-backed users
@@ -887,6 +664,34 @@ function ensureUserAndPermModals(){
     }
     qs('#user-cancel')?.addEventListener('click', () => qs('#user-modal')?.classList.add('hidden'));
     qs('#user-form')?.addEventListener('submit', onUserFormSubmitX);
+    // Inject role selector and schedule button neatly if missing
+    try {
+      const form = qs('#user-form');
+      if (form && !qs('#user-type')){
+        const grid = document.createElement('div');
+        grid.className = 'grid full';
+        grid.innerHTML = `
+          <label class="field"><span>نقش کاربر</span>
+            <select id="user-type">
+              <option value="manager">کاربر مدیر</option>
+              <option value="operator">متصدی</option>
+            </select>
+          </label>
+          <label class="field" id="operator-tools" style="display:none;"><span>ساعت کاری (هفتگی)</span><button type="button" id="edit-schedule" class="btn">تنظیم برنامه</button></label>`;
+        // insert before password field
+        const passField = qs('#user-pass')?.closest('label');
+        if (passField && passField.parentElement === form){
+          form.insertBefore(grid, passField);
+        } else {
+          form.appendChild(grid);
+        }
+        qs('#user-type')?.addEventListener('change', (e) => {
+          const tools = qs('#operator-tools');
+          if (tools) tools.style.display = (e.target.value === 'operator') ? 'block' : 'none';
+        });
+        qs('#edit-schedule')?.addEventListener('click', () => openScheduleModal(CURRENT_EDIT_USER));
+      }
+    } catch {}
   }
   // Create permission modal if missing
   if (!qs('#perm-modal')){
@@ -908,8 +713,7 @@ function ensureUserAndPermModals(){
               <button type="button" class="btn primary" id="perm-save">ذخیره</button>
             </div>
             <p id="perm-msg" class="hint"></p>
-          </div>
-        </div>
+          </label>`r`n            </div>
       </div>`;
     document.body.appendChild(modal);
   }
@@ -922,14 +726,19 @@ function openUserModalX(id){
   const isEdit = !!id; CURRENT_EDIT_USER = id || null;
   const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? 'ویرایش کاربر' : 'افزودن کاربر';
   const f = qs('#user-first'), l = qs('#user-last'), p = qs('#user-phone'), c = qs('#user-code'), pw = qs('#user-pass');
+  const typeSel = qs('#user-type'); const tools = qs('#operator-tools'); if (tools) tools.style.display = 'none';
   const msg = qs('#user-form-msg'); if (msg) msg.textContent = '';
   if (isEdit){
     const u = users.find(x => x.id === id); if (!u) return;
     f.value = u.first || ''; l.value = u.last || ''; p.value = u.phone || '';
     c.value = u.code || ''; pw.value = '';
+    if (typeSel) typeSel.value = u.type || 'operator';
+    if (tools) tools.style.display = ((u.type||'operator') === 'operator') ? 'block' : 'none';
   } else {
     f.value = ''; l.value = ''; p.value = '';
     c.value = genCode(users); pw.value = '';
+    if (typeSel) typeSel.value = 'operator';
+    if (tools) tools.style.display = 'block';
   }
   qs('#user-modal')?.classList.remove('hidden');
 }
@@ -941,6 +750,7 @@ function onUserFormSubmitX(e){
   const phone = qs('#user-phone').value.trim();
   const code = qs('#user-code').value.trim();
   const pass = qs('#user-pass').value;
+  const type = (qs('#user-type')?.value) || 'operator';
   const msg = qs('#user-form-msg');
   if (!first || !last){ msg && (msg.textContent = 'نام و نام خانوادگی الزامی است.'); return; }
   if (!/^\d{11}$/.test(phone)){ msg && (msg.textContent = 'شماره تلفن باید ۱۱ رقم باشد.'); return; }
@@ -948,9 +758,10 @@ function onUserFormSubmitX(e){
   const users = loadUsers();
   if (CURRENT_EDIT_USER){
     const i = users.findIndex(u => u.id === CURRENT_EDIT_USER); if (i === -1) return;
-    const old = users[i]; users[i] = { ...old, first, last, phone, password: pass ? pass : old.password };
+    const old = users[i]; users[i] = { ...old, first, last, phone, type, password: pass ? pass : old.password };
   } else {
-    users.push({ id: genId(), code, first, last, phone, password: pass || '', active: true, email: '', permissions: { tabs: {}, parts: {} } });
+    const schedule = (type === 'operator') ? defaultWeeklySchedule(2) : null;
+    users.push({ id: genId(), code, first, last, phone, password: pass || '', active: true, email: '', type, schedule, permissions: { tabs: {}, parts: {} } });
   }
   saveUsers(users); renderUsers(); updateKpis();
   qs('#user-modal')?.classList.add('hidden');
@@ -1004,3 +815,138 @@ document.addEventListener('DOMContentLoaded', () => {
   try { renderUsers(); updateKpis(); renderUserPill(); } catch {}
 });
 
+
+// Operator weekly schedule modal and helpers
+function ensureScheduleModal(){
+  if (qs('#schedule-modal')) return;
+  const modal = document.createElement('div');
+  modal.id='schedule-modal'; modal.className='modal hidden'; modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true');
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:640px; max-height:80vh; overflow:auto;">
+      <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <h3 style="margin:0;">تنظیم ساعت کاری (هفتگی)</h3>
+        <button type="button" class="icon-btn" id="sch-close" aria-label="بستن">×</button>
+      </div>
+      <div class="form">
+        <label class="field"><span>تعداد بازه‌ها در هر روز</span>
+          <select id="sch-count">
+            <option value="2">2 (یک شیفت کار + یک استراحت)</option>
+            <option value="4">4 (دو شیفت کار + دو استراحت)</option>
+          </select>
+        </label>
+        <div id="sch-grid" class="periods-list"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="sch-cancel">انصراف</button>
+        <button type="button" class="btn primary" id="sch-save">ذخیره</button>
+      </div>
+      <p id="sch-msg" class="hint"></p>
+    </div>`;
+  document.body.appendChild(modal);
+  const close = () => { document.body.style.overflow = ''; qs('#schedule-modal')?.classList.add('hidden'); };
+  qs('#sch-cancel')?.addEventListener('click', close);
+  qs('#sch-close')?.addEventListener('click', close);
+  modal.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') close(); });
+  qs('#sch-save')?.addEventListener('click', saveScheduleFromModal);
+}
+
+const DAYS_FA = ['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
+function defaultWeeklySchedule(intervalCount){
+  const n = (intervalCount === 4) ? 4 : 2;
+  const emptyIntervals = (m) => Array.from({length:m}, (_,i) => ({ start: '09:00', end: i%2===0 ? '13:00' : '17:00' }));
+  return { type: n, days: DAYS_FA.map((d, idx) => ({ day: idx, label: d, intervals: emptyIntervals(n) })) };
+}
+
+function openScheduleModal(id){
+  ensureScheduleModal();
+  const users = loadUsers();
+  const u = users.find(x => x.id === (id || (typeof CURRENT_EDIT_USER !== 'undefined' ? CURRENT_EDIT_USER : '')));
+  if (!u) return;
+  const sched = u.schedule || defaultWeeklySchedule(2);
+  const countSel = qs('#sch-count'); if (countSel) countSel.value = String(sched.type || 2);
+  renderScheduleGrid(sched);
+  qs('#schedule-modal')?.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  qs('#sch-count')?.addEventListener('change', (e) => { const n = parseInt(e.target.value, 10) === 4 ? 4 : 2; renderScheduleGrid({ type: n, days: defaultWeeklySchedule(n).days }); }, { once: true });
+}
+
+function renderScheduleGrid(sched){
+  const grid = qs('#sch-grid'); if (!grid) return; grid.innerHTML='';
+  const n = (sched.type===4)?4:2;
+  (sched.days||[]).forEach(day => {
+    const item = document.createElement('div');
+    item.className = 'card'; item.style.padding = '10px';
+    const head = document.createElement('div'); head.className='hint'; head.textContent = day.label; item.appendChild(head);
+    const row = document.createElement('div'); row.className='grid full';
+    for (let i=0;i<n;i++){
+      const cur = day.intervals?.[i] || { start:'09:00', end:'13:00' };
+      const startId = `sch-${day.day}-${i}-start`; const endId = `sch-${day.day}-${i}-end`;
+      const f1 = document.createElement('label'); f1.className = 'field'; f1.innerHTML = `<span>شروع ${i+1}</span><input type="time" id="${startId}" value="${cur.start}" />`;
+      const f2 = document.createElement('label'); f2.className = 'field'; f2.innerHTML = `<span>پایان ${i+1}</span><input type="time" id="${endId}" value="${cur.end}" />`;
+      row.appendChild(f1); row.appendChild(f2);
+    }
+    item.appendChild(row); grid.appendChild(item);
+  });
+}
+
+function saveScheduleFromModal(){
+  const users = loadUsers(); const id = (typeof CURRENT_EDIT_USER !== 'undefined') ? CURRENT_EDIT_USER : '';
+  const i = users.findIndex(u => u.id === id); if (i === -1) return;
+  const n = parseInt(qs('#sch-count')?.value || '2', 10) === 4 ? 4 : 2;
+  const days = DAYS_FA.map((d, idx) => {
+    const intervals = [];
+    for (let k=0;k<n;k++){
+      const s = qs(`#sch-${idx}-${k}-start`)?.value || '09:00';
+      const e = qs(`#sch-${idx}-${k}-end`)?.value || '13:00';
+      intervals.push({ start: s, end: e });
+    }
+    return { day: idx, label: d, intervals };
+  });
+  users[i].schedule = { type: n, days };
+  saveUsers(users);
+  document.body.style.overflow = '';
+  qs('#schedule-modal')?.classList.add('hidden');
+}
+
+// Archive helpers and enhanced users table
+const USERS_ARCHIVE_KEY = 'gamenet_users_archive';
+function loadArchivedUsers(){ try { return JSON.parse(localStorage.getItem(USERS_ARCHIVE_KEY) || '[]'); } catch { return []; } }
+function saveArchivedUsers(arr){ localStorage.setItem(USERS_ARCHIVE_KEY, JSON.stringify(arr)); }
+function archiveAndRemoveUser(id){
+  const users = loadUsers(); const idx = users.findIndex(u => u.id === id);
+  if (idx === -1) return;
+  const u = users[idx]; if (u.email) return; // don't remove admin
+  const ok = confirm(`حذف کاربر «${(u.first||'')+' '+(u.last||'')}»؟ سوابق آرشیو می‌شود.`);
+  if (!ok) return;
+  const arch = loadArchivedUsers(); arch.push({ ...u, archivedAt: new Date().toISOString() }); saveArchivedUsers(arch);
+  users.splice(idx,1); saveUsers(users); renderUsers(); updateKpis();
+}
+
+// Override renderUsers to include role and delete action
+(function(){
+  const orig = typeof renderUsers === 'function' ? renderUsers : null;
+  window.renderUsers = function(){
+    const tbody = qs('#users-body'); if (!tbody) return; tbody.innerHTML = '';
+    const headRow = qs('#tab-users thead tr');
+    if (headRow) headRow.innerHTML = '<th>کد ۵ رقمی</th><th>نام و نام خانوادگی</th><th>شماره تماس</th><th>نقش</th><th>وضعیت</th><th>عملیات</th>';
+    const users = loadUsers().filter(u => !u.email);
+    users.forEach(u => {
+      const tr = document.createElement('tr');
+      const full = `${u.first || ''} ${u.last || ''}`.trim();
+      const status = u.active ? 'فعال' : 'غیرفعال';
+      const role = u.type === 'manager' ? 'کاربر مدیر' : 'متصدی';
+      tr.innerHTML = `<td>${u.code || ''}</td><td>${full}</td><td>${u.phone || ''}</td><td>${role}</td><td>${status}</td><td>
+        <button class="btn" data-act="edit" data-id="${u.id}">ویرایش</button>
+        <button class="btn" data-act="perm" data-id="${u.id}">دسترسی‌ها</button>
+        <button class="btn danger" data-act="del" data-id="${u.id}">حذف</button>
+      </td>`;
+      tbody.appendChild(tr);
+    });
+    qsa('#users-body button[data-act]').forEach(b => b.addEventListener('click', () => {
+      const id = b.getAttribute('data-id'); const act = b.getAttribute('data-act');
+      if (act === 'edit') openUserModalX(id);
+      if (act === 'perm') openPermModal(id);
+      if (act === 'del') archiveAndRemoveUser(id);
+    }));
+  };
+})();
