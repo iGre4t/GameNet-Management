@@ -1,0 +1,250 @@
+// Branches (تنظیمات شعب)
+function qs(sel, root = document) { return root.querySelector(sel); }
+function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const BRANCHES_KEY = 'gamenet_branches';
+  const genId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const loadBranches = () => { try { return JSON.parse(localStorage.getItem(BRANCHES_KEY) || '[]'); } catch { return []; } };
+  const saveBranches = (data) => localStorage.setItem(BRANCHES_KEY, JSON.stringify(data));
+
+  let branches = loadBranches();
+  let currentBranchId = null;
+  let currentPeriodId = null;
+
+  // Period helpers
+  const DAY_MIN = 24*60;
+  const toMin = (hhmm) => {
+    if (!hhmm || typeof hhmm !== 'string') return 0;
+    const parts = hhmm.split(':');
+    const h = parseInt(parts[0]||'0',10);
+    const m = parseInt(parts[1]||'0',10);
+    let t = (isNaN(h)?0:h)*60 + (isNaN(m)?0:m);
+    if (!Number.isFinite(t)) t = 0;
+    return Math.max(0, Math.min(DAY_MIN, t));
+  };
+  const toHHMM = (min) => {
+    const x = Math.max(0, Math.min(DAY_MIN, Number(min)||0));
+    const hh = String(Math.floor(x/60)).padStart(2,'0');
+    const mm = String(x%60).padStart(2,'0');
+    return `${hh}:${mm}`;
+  };
+  const labelPeriod = (p) => `${toHHMM(p.start)} - ${toHHMM(p.end)}`;
+  const ensureBranchPeriods = (b) => {
+    if (!b.periods || !Array.isArray(b.periods) || b.periods.length === 0){
+      const defaults = b.defaultPrices || zeroPrices();
+      b.periods = [{ id: genId(), start: 0, end: DAY_MIN, defaultPrices: defaults }];
+    }
+    return b;
+  };
+
+  const setTitle = (t) => { const el = qs('#page-title'); if (el) el.textContent = t; };
+
+  const setSubnavActive = (key) => {
+    qsa('#branch-subnav .sub-item').forEach(el => el.classList.toggle('active', el.dataset.view === String(key)));
+  };
+
+  const renderBranchSubnav = () => {
+    const wrap = qs('#branch-items');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    branches.forEach(b => {
+      const btn = document.createElement('button');
+      btn.className = 'sub-item';
+      btn.dataset.view = b.id;
+      btn.textContent = b.name || 'شعبه بی‌نام';
+      btn.addEventListener('click', () => showBranchPage(b.id));
+      wrap.appendChild(btn);
+    });
+    setSubnavActive(currentBranchId ? currentBranchId : 'manage');
+  };
+
+  const renderBranchesTable = () => {
+    const tbody = qs('#branches-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    branches.forEach(b => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${b.name}</td><td><button class="btn" data-open="${b.id}">باز کردن</button></td>`;
+      tbody.appendChild(tr);
+    });
+    qsa('#branches-body button[data-open]').forEach(btn => {
+      btn.addEventListener('click', () => showBranchPage(btn.getAttribute('data-open')));
+    });
+    // Add delete buttons to branch rows
+    qsa('#branches-body tr').forEach((tr) => {
+      const openBtn = tr.querySelector('button[data-open]');
+      if (!openBtn) return;
+      const id = openBtn.getAttribute('data-open');
+      const tds = tr.querySelectorAll('td');
+      const actionTd = tds[1];
+      if (actionTd && !actionTd.querySelector('[data-del-branch]')){
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn danger';
+        del.textContent = 'حذف';
+        del.setAttribute('data-del-branch', id);
+        del.addEventListener('click', () => {
+          const idx = branches.findIndex(b => b.id === id);
+          const br = branches[idx];
+          if (idx < 0 || !br) return;
+          openConfirm(`حذف شعبه «${br.name}»؟ این عملیات قابل بازگشت است.`, () => {
+            const removed = branches.splice(idx, 1)[0];
+            saveBranches(branches);
+            renderBranchesTable();
+            showUndoToast({ type: 'branch', payload: removed, index: idx });
+          });
+        });
+        actionTd.appendChild(del);
+      }
+    });
+  };
+
+  const renderSystemsTable = (branch) => {
+    const tbody = qs('#systems-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    (branch.systems || []).forEach(sys => {
+      const tr = document.createElement('tr');
+      const btn = `<button class=\"btn\" data-sys=\"${sys.id}\">تنظیمات</button>`;
+      const status = (sys.prices == null) ? 'قیمت پیشفرض' : 'قیمت دلخواه';
+      tr.innerHTML = `<td><input type=\"checkbox\" class=\"row-select\" data-id=\"${sys.id}\" /></td><td>${sys.name}</td><td>${status}</td><td>${btn}</td>`;
+      tbody.appendChild(tr);
+    });
+    // header select control
+    const headerSelect = qs('#header-select');
+    const selectAll = qs('#select-all');
+    const rowChecks = () => qsa('#systems-body .row-select');
+    const setAll = (v) => rowChecks().forEach(ch => ch.checked = v);
+    headerSelect && (headerSelect.onchange = () => setAll(headerSelect.checked));
+    selectAll && (selectAll.onchange = () => setAll(selectAll.checked));
+
+    qsa('#systems-body button[data-sys]').forEach(btn => {
+      btn.addEventListener('click', () => openSystemModal(branch.id, btn.getAttribute('data-sys')));
+    });
+    // Update status cells and add delete buttons using current period
+    qsa('#systems-body .row-select').forEach((ch, idx) => {
+      const tr = ch.closest('tr');
+      if (!tr) return;
+      const tds = tr.querySelectorAll('td');
+      const statusTd = tds[2];
+      const actionTd = tds[3];
+      const pid = currentPeriodId || (ensureBranchPeriods(branch).periods[0]?.id);
+      const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
+      if (sys && statusTd){
+        const hasOverride = !!(sys.pricesByPeriod && sys.pricesByPeriod[pid]);
+        statusTd.textContent = hasOverride ? 'قیمت دلخواه' : 'قیمت پیشفرض';
+      }
+      if (actionTd && !actionTd.querySelector('[data-del-sys]')){
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn danger';
+        del.textContent = 'حذف';
+        del.setAttribute('data-del-sys', ch.dataset.id);
+        del.setAttribute('data-index', String(idx));
+        del.addEventListener('click', () => {
+          const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
+          if (!sys) return;
+          openConfirm(`حذف سیستم «${sys.name}»؟ این عملیات قابل بازگشت است.`, () => {
+            const i = (branch.systems||[]).findIndex(s => s.id === ch.dataset.id);
+            if (i >= 0){
+              const removed = branch.systems.splice(i, 1)[0];
+              saveBranches(branches);
+              renderSystemsTable(branch);
+              showUndoToast({ type: 'system', payload: removed, branchId: branch.id, index: i });
+            }
+          });
+        });
+        actionTd.appendChild(del);
+      }
+    });
+  };
+
+  const showManageView = () => {
+    currentBranchId = null;
+    setSubnavActive('manage');
+    const m = qs('#branch-manage-view');
+    const p = qs('#branch-page-view');
+    if (m && p) { m.classList.remove('hidden'); p.classList.add('hidden'); }
+    renderBranchesTable();
+  };
+
+  const showBranchPage = (branchId) => {
+    const branch = branches.find(b => b.id === branchId);
+    if (!branch) return;
+    currentBranchId = branch.id;
+    setSubnavActive(branch.id);
+    const m = qs('#branch-manage-view');
+    const p = qs('#branch-page-view');
+    if (m && p) { m.classList.add('hidden'); p.classList.remove('hidden'); }
+    const t = qs('#branch-page-title');
+    if (t) t.textContent = `شعبه: ${branch.name}`;
+    renderPeriodSelect(branch);
+    fillDefaultPricesForm(branch);
+    renderSystemsTable(branch);
+  };
+
+  // Add branch
+  qs('#add-branch-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = qs('#branch-name');
+    const name = input.value.trim();
+    if (!name) return;
+    const b = { id: genId(), name, systems: [], periods: [{ id: genId(), start: 0, end: 24*60, defaultPrices: zeroPrices() }] };
+    branches.push(b);
+    saveBranches(branches);
+    input.value = '';
+    renderBranchSubnav();
+    renderBranchesTable();
+  });
+
+  // Manage subnav button
+  qs('#branch-subnav')?.addEventListener('click', (e) => {
+    const target = e.target;
+    if (target && target.matches('.sub-item[data-view="manage"]')) showManageView();
+  });
+
+  // Add system
+  qs('#add-system-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!currentBranchId) return;
+    const input = qs('#system-name-input');
+    const name = input.value.trim();
+    if (!name) return;
+    const branch = branches.find(b => b.id === currentBranchId);
+    if (!branch) return;
+    ensureBranchPeriods(branch);
+    const pid = currentPeriodId || branch.periods[0]?.id;
+    // new systems start with default prices (no custom override)
+    const sys = { id: genId(), name, pricesByPeriod: {} };
+    branch.systems = branch.systems || [];
+    branch.systems.push(sys);
+    saveBranches(branches);
+    input.value = '';
+    renderSystemsTable(branch);
+  });
+
+  // Modal helpers
+  const openSystemModal = (branchId, systemId) => {
+    const m = qs('#system-modal');
+    const form = qs('#system-form');
+    if (!m || !form) return;
+    const branch = branches.find(b => b.id === branchId);
+    const sys = branch?.systems?.find(s => s.id === systemId);
+    if (!sys) return;
+    const pid = currentPeriodId || (ensureBranchPeriods(branch).periods[0]?.id);
+    const eff = getEffectivePrices(branch, sys, pid);
+    qs('#system-name').value = sys.name || '';
+    qs('#price-1p').value = formatPrice(eff.p1);
+    qs('#price-2p').value = formatPrice(eff.p2);
+    qs('#price-3p').value = formatPrice(eff.p3);
+    qs('#price-4p').value = formatPrice(eff.p4);
+    qs('#price-birthday').value = formatPrice(eff.birthday);
+    qs('#price-film').value = formatPrice(eff.film);
+    form.dataset.branchId = branchId;
+    form.dataset.systemId = systemId;
+    form.dataset.periodId = pid;
+    m.classList.remove('hidden');
+  };
+
+  const closeSystemModal = () => {

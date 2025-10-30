@@ -691,7 +691,13 @@ function ensureUserAndPermModals(){
           const tools = qs('#operator-tools');
           if (tools) tools.style.display = (e.target.value === 'operator') ? 'block' : 'none';
         });
-        qs('#edit-schedule')?.addEventListener('click', () => openScheduleModal(CURRENT_EDIT_USER));
+        // Disable working shift button and show tooltip
+        const schBtn = qs('#edit-schedule');
+        if (schBtn) {
+          schBtn.disabled = true;
+          schBtn.title = 'بزودی';
+          schBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+        }
       }
     } catch {}
   }
@@ -812,6 +818,15 @@ function savePermsFromModal(){
 // Wire up after base script listeners
 document.addEventListener('DOMContentLoaded', () => {
   try { ensureUserAndPermModals(); } catch {}
+  // Ensure schedule button is disabled globally with tooltip
+  try {
+    const schBtnGlobal = qs('#edit-schedule');
+    if (schBtnGlobal) {
+      schBtnGlobal.disabled = true;
+      schBtnGlobal.title = 'بزودی';
+      schBtnGlobal.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
+    }
+  } catch {}
   const addBtn = qs('#add-user'); addBtn && addBtn.addEventListener('click', () => openUserModalX());
   // Initial render with extended schema
   try { renderUsers(); updateKpis(); renderUserPill(); } catch {}
@@ -1096,5 +1111,47 @@ function archiveAndRemoveUser(id){
       if (act === 'perm') openPermModal(id);
       if (act === 'del') archiveAndRemoveUser(id);
     }));
+  };
+})();
+
+// Add Stats tab and move home KPIs to it
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const nav = qs('.nav');
+    if (nav && !nav.querySelector('[data-tab="stats"]')){
+      const btn = document.createElement('button');
+      btn.className = 'nav-item';
+      btn.setAttribute('data-tab','stats');
+      const span = document.createElement('span');
+      span.textContent = 'آمار مدیریت و حسابداری';
+      btn.appendChild(span);
+      btn.addEventListener('click', () => setActiveTab('stats'));
+      const settingsBtn = nav.querySelector('[data-tab="settings"]');
+      if (settingsBtn) nav.insertBefore(btn, settingsBtn); else nav.appendChild(btn);
+    }
+    if (!qs('#tab-stats')){
+      const sec = document.createElement('section');
+      sec.id = 'tab-stats';
+      sec.className = 'tab';
+      const content = qs('.content');
+      if (content){
+        const homeSec = qs('#tab-home');
+        if (homeSec) content.insertBefore(sec, homeSec); else content.appendChild(sec);
+      }
+      const homeCards = qs('#tab-home .cards');
+      if (homeCards) sec.appendChild(homeCards);
+    }
+  } catch {}
+});
+
+// Override setActiveTab to include Stats title
+(function(){
+  const original = typeof setActiveTab === 'function' ? setActiveTab : null;
+  window.setActiveTab = function(tab){
+    qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    qsa('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
+    const titles = { home: 'خانه', stats: 'آمار مدیریت و حسابداری', users: 'کاربران', settings: 'تنظیمات' };
+    const el = qs('#page-title');
+    if (el) el.textContent = titles[tab] || '';
   };
 })();

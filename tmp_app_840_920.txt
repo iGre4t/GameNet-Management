@@ -1,0 +1,81 @@
+      <div class="modal-actions">
+        <button type="button" class="btn" id="sch-cancel">??????</button>
+        <button type="button" class="btn primary" id="sch-save">?????</button>
+      </div>
+      <p id="sch-msg" class="hint"></p>
+    </div>`;
+  document.body.appendChild(modal);
+  const close = () => { document.body.style.overflow = ''; qs('#schedule-modal')?.classList.add('hidden'); };
+  qs('#sch-cancel')?.addEventListener('click', close);
+  qs('#sch-close')?.addEventListener('click', close);
+  modal.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') close(); });
+  qs('#sch-save')?.addEventListener('click', saveScheduleFromModal);
+}
+
+const DAYS_FA = ['????','??????','??????','???????','????????','???????','????'];
+function defaultWeeklySchedule(intervalCount){
+  const n = (intervalCount === 4) ? 4 : 2;
+  const emptyIntervals = (m) => Array.from({length:m}, (_,i) => ({ start: '09:00', end: i%2===0 ? '13:00' : '17:00' }));
+  return { type: n, days: DAYS_FA.map((d, idx) => ({ day: idx, label: d, intervals: emptyIntervals(n) })) };
+}
+
+function openScheduleModal(id){
+  ensureScheduleModal();
+  const users = loadUsers();
+  const u = users.find(x => x.id === (id || (typeof CURRENT_EDIT_USER !== 'undefined' ? CURRENT_EDIT_USER : '')));
+  if (!u) return;
+  const sched = u.schedule || defaultWeeklySchedule(2);
+  const countSel = qs('#sch-count'); if (countSel) countSel.value = String(sched.type || 2);
+  // New timeline-based renderer
+  if (typeof renderScheduleGridTimeline === 'function') {
+    renderScheduleGridTimeline(sched);
+  } else {
+    renderScheduleGrid(sched);
+  }
+  qs('#schedule-modal')?.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  qs('#sch-count')?.addEventListener('change', (e) => { const n = parseInt(e.target.value, 10) === 4 ? 4 : 2; (typeof renderScheduleGridTimeline==='function'?renderScheduleGridTimeline:renderScheduleGrid)({ type: n, days: defaultWeeklySchedule(n).days }); }, { once: true });
+}
+
+function renderScheduleGrid(sched){
+  const grid = qs('#sch-grid'); if (!grid) return; grid.innerHTML='';
+  const n = (sched.type===4)?4:2;
+  (sched.days||[]).forEach(day => {
+    const item = document.createElement('div');
+    item.className = 'card'; item.style.padding = '10px';
+    const head = document.createElement('div'); head.className='hint'; head.textContent = day.label; item.appendChild(head);
+    const row = document.createElement('div'); row.className='grid full';
+    for (let i=0;i<n;i++){
+      const cur = day.intervals?.[i] || { start:'09:00', end:'13:00' };
+      const startId = `sch-${day.day}-${i}-start`; const endId = `sch-${day.day}-${i}-end`;
+      const f1 = document.createElement('label'); f1.className = 'field'; f1.innerHTML = `<span>???? ${i+1}</span><input type="time" id="${startId}" value="${cur.start}" />`;
+      const f2 = document.createElement('label'); f2.className = 'field'; f2.innerHTML = `<span>????? ${i+1}</span><input type="time" id="${endId}" value="${cur.end}" />`;
+      row.appendChild(f1); row.appendChild(f2);
+    }
+    item.appendChild(row); grid.appendChild(item);
+  });
+}
+
+// Timeline-based schedule editor (24h bar with handles)
+// Uses hidden time inputs with same ids so saveScheduleFromModal keeps working
+const DAY_MIN_OP = 24*60;
+function toMinOp(hhmm){
+  if (!hhmm || typeof hhmm !== 'string') return 0;
+  const p = hhmm.split(':');
+  const h = parseInt(p[0]||'0',10); const m = parseInt(p[1]||'0',10);
+  let t = (isNaN(h)?0:h)*60 + (isNaN(m)?0:m);
+  if (!Number.isFinite(t)) t = 0;
+  return Math.max(0, Math.min(DAY_MIN_OP, t));
+}
+function toHHMMOp(min){
+  const x = Math.max(0, Math.min(DAY_MIN_OP, Number(min)||0));
+  const hh = String(Math.floor(x/60)).padStart(2,'0');
+  const mm = String(x%60).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+function renderScheduleGridTimeline(sched){
+  const grid = qs('#sch-grid'); if (!grid) return; grid.innerHTML='';
+  const n = (sched.type===4)?4:2;
+  (sched.days||[]).forEach(day => {
+    const card = document.createElement('div');
+    card.className = 'card'; card.style.padding = '10px';

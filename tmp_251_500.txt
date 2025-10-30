@@ -1,0 +1,250 @@
+    } else {
+      link.href = 'data:,';
+      if (img){ img.src = ''; img.classList.add('hidden'); }
+      if (preview){ preview.src = ''; preview.classList.add('hidden'); }
+    }
+  }
+
+  function injectDevTab(){
+    const nav = document.querySelector('.nav');
+    if (nav && !nav.querySelector('[data-tab="dev"]')){
+      const btn = document.createElement('button');
+      btn.className = 'nav-item';
+      btn.setAttribute('data-tab','dev');
+      const span = document.createElement('span');
+      span.textContent = STR_DEVELOPER_SETTINGS;
+      btn.appendChild(span);
+      btn.addEventListener('click', () => {
+        if (typeof setActiveTab === 'function') setActiveTab('dev');
+        const el = document.getElementById('page-title');
+        if (el) el.textContent = STR_DEVELOPER_SETTINGS;
+      });
+      nav.appendChild(btn);
+    }
+
+    if (!document.getElementById('tab-dev')){
+      const sec = document.createElement('section');
+      sec.id = 'tab-dev';
+      sec.className = 'tab';
+      sec.innerHTML = `
+  <div class="card">
+    <h3>${STR_DEVELOPER_SETTINGS}</h3>
+    <div class="form grid">
+      <label class="field full">
+        <span>${STR_SITE_TITLE}</span>
+        <input id="site-title" type="text" value="" placeholder="????: ?????? ??????" />
+      </label>
+      <div class="field">
+        <span>${STR_FAVICON}</span>
+        <div class="favicon-row">
+          <img id="favicon-preview" class="favicon-icon hidden" alt="favicon" />
+          <button id="open-favicon-modal" class="btn">${STR_SET_CHANGE_FAVICON}</button>
+        </div>
+      </div>
+      <label class="field">
+        <span>${STR_TIMEZONE}</span>
+        <select id="timezone-select"></select>
+      </label>
+    </div>
+  </div>`;
+      const content = document.querySelector('.content');
+      if (content) content.appendChild(sec);
+      // Add explicit save button and message
+      const card = sec.querySelector('.card');
+      if (card) {
+        const actions = document.createElement('div');
+        actions.className = 'modal-actions';
+        actions.innerHTML = '<button type=\"button\" class=\"btn primary\" id=\"dev-save\">'+STR_SAVE+'<\/button>';
+        card.appendChild(actions);
+        const msg = document.createElement('p');
+        msg.id = 'dev-msg';
+        msg.className = 'hint';
+        card.appendChild(msg);
+      }
+      // Mark inputs with keys and set initial values
+      const st = sec.querySelector('#site-title');
+      if (st) st.setAttribute('data-save-key', 'gamenet_site_title');
+      // Populate timezone dropdown
+      const tzSelect = sec.querySelector('#timezone-select');
+      if (tzSelect){
+        const storedTz = localStorage.getItem(TIMEZONE_KEY) || 'Asia/Tehran';
+        function supportedTimeZones(){
+          if (typeof Intl !== 'undefined' && Intl.supportedValuesOf){
+            try { return Intl.supportedValuesOf('timeZone'); } catch { /* fallthrough */ }
+          }
+          return [
+            'Asia/Tehran','Asia/Dubai','Asia/Baghdad','Asia/Qatar','Asia/Kolkata','Asia/Tokyo','Asia/Shanghai',
+            'Europe/Moscow','Europe/Berlin','Europe/Paris','Europe/London','UTC',
+            'Africa/Cairo','Africa/Nairobi',
+            'America/Sao_Paulo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Pacific/Auckland'
+          ];
+        }
+        function tzOffsetLabel(tz){
+          try {
+            const parts = new Intl.DateTimeFormat('en-US',{ timeZone: tz, timeZoneName:'shortOffset'}).formatToParts(new Date());
+            const v = parts.find(p=>p.type==='timeZoneName')?.value || '';
+            return v.startsWith('GMT')?v:('GMT'+v.replace('UTC',''));
+          } catch { return 'GMT'; }
+        }
+        const zones = supportedTimeZones();
+        // Sort by offset then name
+        zones.sort((a,b)=>{
+          const ao = tzOffsetLabel(a).replace('GMT','');
+          const bo = tzOffsetLabel(b).replace('GMT','');
+          return ao.localeCompare(bo) || a.localeCompare(b);
+        });
+        zones.forEach(z=>{
+          const opt = document.createElement('option');
+          const label = z.replace(/_/g,'/');
+          opt.value = z;
+          opt.textContent = `${label} (${tzOffsetLabel(z)})`;
+          if (z === storedTz) opt.selected = true;
+          tzSelect.appendChild(opt);
+        });
+      }
+      // Save handler
+      const saveBtn = sec.querySelector('#dev-save');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          const titleVal = String((document.getElementById('site-title')||{}).value || '').trim();
+          localStorage.setItem('gamenet_site_title', titleVal);
+          if (typeof applyTitle === 'function') applyTitle(titleVal);
+          const tzSel = document.getElementById('timezone-select');
+          const tz = tzSel ? tzSel.value : 'Asia/Tehran';
+          localStorage.setItem(TIMEZONE_KEY, tz);
+          // Also keep offset minutes for backward compatibility
+          try {
+            const parts = new Intl.DateTimeFormat('en-US',{ timeZone: tz, timeZoneName:'shortOffset'}).formatToParts(new Date());
+            const v = parts.find(p=>p.type==='timeZoneName')?.value || 'GMT+03:30';
+            const m = v.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+            if (m){
+              const sign = m[1] === '-' ? -1 : 1;
+              const hh = parseInt(m[2],10); const mm = parseInt(m[3]||'0',10);
+              const minutes = sign*(hh*60+mm);
+              localStorage.setItem(TIME_OFFSET_KEY, String(minutes));
+            }
+          } catch {}
+          const hint = document.getElementById('dev-msg');
+          if (hint) { hint.textContent = '\u0630\u062E\u06CC\u0631\u0647 \u0634\u062F'; setTimeout(() => hint.textContent = '', 1500); }
+          if (typeof renderClock === 'function') renderClock();
+        });
+      }
+    }
+
+    // Remove old site-title field from Settings tab if exists
+    const oldTitleInput = document.querySelector('#tab-settings #site-title');
+    if (oldTitleInput){
+      const container = oldTitleInput.closest('.field');
+      if (container) container.remove();
+    }
+  }
+
+  function injectFaviconModal(){
+    if (document.getElementById('favicon-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'favicon-modal';
+    modal.className = 'modal hidden';
+    modal.setAttribute('role','dialog');
+    modal.setAttribute('aria-modal','true');
+    modal.innerHTML = `
+      <div class="modal-card">
+        <h3 id="favicon-modal-title">\u062A\u0646\u0638\u06CC\u0645 \u0641\u0627\u0648\u0622\u06CC\u06A9\u0648\u0646 (\u0628\u0631\u0634 1:1)</h3>
+        <div class="form">
+          <label class="field">
+            <span>${STR_PICK_IMAGE}</span>
+            <input type="file" id="favicon-file" accept="image/*" />
+          </label>
+          <div class="cropper-wrap">
+            <canvas id="favicon-canvas" width="256" height="256" aria-label="\u0646\u0627\u062D\u06CC\u0647 \u0628\u0631\u0634"></canvas>
+          </div>
+          <label class="field">
+            <span>${STR_ZOOM}</span>
+            <input type="range" id="favicon-zoom" min="0.5" max="3" step="0.01" value="1" />
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="favicon-cancel">${STR_CANCEL}</button>
+          <button type="button" class="btn primary" id="favicon-save">${STR_SAVE}</button>
+        </div>
+        <p id="favicon-msg" class="hint"></p>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+
+  function initLogic(){
+    ensureStyles();
+    ensureSidebarFavicon();
+    injectDevTab();
+    injectFaviconModal();
+
+    // Load persisted title and favicon
+    const storedTitle = localStorage.getItem(SITE_TITLE_KEY);
+    if (storedTitle) applyTitle(storedTitle);
+    else {
+      const def = document.querySelector('.sidebar .title')?.textContent?.trim() || '';
+      if (def) applyTitle(def);
+    }
+    const fav = localStorage.getItem(FAVICON_KEY);
+    if (fav) applyFavicon(fav);
+
+    // Initialize time-offset input
+    // Default timezone if missing
+    if (!localStorage.getItem(TIMEZONE_KEY)) localStorage.setItem(TIMEZONE_KEY, 'Asia/Tehran');
+    // Hook title input
+    document.addEventListener('input', (e) => {
+      const t = e.target;
+      if (t && t.id === 'site-title'){
+        const val = String(t.value || '').trim();
+        localStorage.setItem(SITE_TITLE_KEY, val);
+        applyTitle(val);
+      }
+    });
+    // Timezone change
+    document.addEventListener('change', (e)=>{
+      const t = e.target;
+      if (t && t.id === 'timezone-select'){
+        const tz = t.value || 'Asia/Tehran';
+        localStorage.setItem(TIMEZONE_KEY, tz);
+        // also cache offset minutes for compatibility
+        try {
+          const parts = new Intl.DateTimeFormat('en-US',{ timeZone: tz, timeZoneName:'shortOffset'}).formatToParts(new Date());
+          const v = parts.find(p=>p.type==='timeZoneName')?.value || '';
+          const m = v.match(/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/);
+          if (m){
+            const sign = m[1] === '-' ? -1 : 1;
+            const hh = parseInt(m[2],10); const mm = parseInt(m[3]||'0',10);
+            const minutes = sign*(hh*60+mm);
+            localStorage.setItem(TIME_OFFSET_KEY, String(minutes));
+          }
+        } catch {}
+        renderClock();
+      }
+    });
+
+    // Favicon modal logic
+    const openBtn = document.getElementById('open-favicon-modal');
+    const modal = document.getElementById('favicon-modal');
+    const fileInput = document.getElementById('favicon-file');
+    const canvas = document.getElementById('favicon-canvas');
+    const zoom = document.getElementById('favicon-zoom');
+    const ctx = canvas ? canvas.getContext('2d') : null;
+    let img = new Image();
+    let hasImage = false;
+    let baseScale = 1;
+    let scale = 1;
+    let offsetX = 0, offsetY = 0;
+    let dragging = false; let lastX = 0, lastY = 0;
+
+    function clearCanvas(){ if (!ctx) return; ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+    function draw(){ if (!ctx || !hasImage) { clearCanvas(); return; } clearCanvas(); const w = img.width * scale; const h = img.height * scale; const x = (canvas.width - w)/2 + offsetX; const y = (canvas.height - h)/2 + offsetY; ctx.drawImage(img, x, y, w, h); }
+    function fitImage(){ if (!img || !canvas) return; const s = Math.min(canvas.width / img.width, canvas.height / img.height); baseScale = s; scale = s; offsetX = 0; offsetY = 0; if (zoom) zoom.value = '1'; draw(); }
+
+    function openModal(){ if (!modal) return; modal.classList.remove('hidden'); }
+    function closeModal(){ if (!modal) return; modal.classList.add('hidden'); if (fileInput) fileInput.value=''; }
+
+    if (openBtn) openBtn.addEventListener('click', openModal);
+    document.getElementById('favicon-cancel')?.addEventListener('click', closeModal);
+    document.getElementById('favicon-save')?.addEventListener('click', () => {
+      if (!canvas) return; const out = document.createElement('canvas'); out.width = 64; out.height = 64; const octx = out.getContext('2d'); if (!octx) return; // draw scaled down from preview
+      octx.drawImage(canvas, 0, 0, out.width, out.height);
+      const url = out.toDataURL('image/png');

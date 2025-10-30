@@ -1,0 +1,221 @@
+  if (CURRENT_EDIT_USER){
+    const i = users.findIndex(u => u.id === CURRENT_EDIT_USER); if (i === -1) return;
+    const old = users[i]; users[i] = { ...old, first, last, phone, type, password: pass ? pass : old.password };
+  } else {
+    const schedule = (type === 'operator') ? defaultWeeklySchedule(2) : null;
+    users.push({ id: genId(), code, first, last, phone, password: pass || '', active: true, email: '', type, schedule, permissions: { tabs: {}, parts: {} } });
+  }
+  saveUsers(users); renderUsers(); updateKpis();
+  qs('#user-modal')?.classList.add('hidden');
+}
+
+function openPermModal(id){
+  const users = loadUsers(); const u = users.find(x => x.id === id); if (!u) return;
+  CURRENT_PERM_USER = id; const sub = qs('#perm-subnav'); const con = qs('#perm-content');
+  if (!sub || !con) return; sub.innerHTML = ''; con.innerHTML = '';
+  const perms = normalizePermissions(u.permissions);
+  Object.entries(PERMISSION_TABS).forEach(([key, def], idx) => {
+    const b = document.createElement('button'); b.className = 'sub-item' + (idx===0?' active':''); b.dataset.tab = key; b.textContent = def.label; b.addEventListener('click', () => switchPermTab(key)); sub.appendChild(b);
+    const pane = document.createElement('div'); pane.className = 'perm-pane' + (idx===0?'':' hidden'); pane.dataset.tab = key;
+    const chkId = `perm-tab-${key}`; const selId = `perm-parts-${key}`;
+    const hasTab = !!perms.tabs[key];
+    pane.innerHTML = `
+      <div class="perm-row">
+        <label class="chk"><input type="checkbox" id="${chkId}" ${hasTab?'checked':''}/> ?????? ?? ?? «${def.label}»</label>
+        <label class="field">
+          <span>???? ??????</span>
+          <select id="${selId}" multiple></select>
+        </label>
+      </div>`;
+    con.appendChild(pane);
+    const sel = pane.querySelector('select');
+    def.parts.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; if (Array.isArray(perms.parts[key]) && perms.parts[key].includes(p)) o.selected = true; sel.appendChild(o); });
+  });
+  qs('#perm-modal')?.classList.remove('hidden');
+}
+
+function switchPermTab(key){
+  qsa('#perm-subnav .sub-item').forEach(b => b.classList.toggle('active', b.dataset.tab === key));
+  qsa('#perm-content .perm-pane').forEach(p => p.classList.toggle('hidden', p.dataset.tab !== key));
+}
+
+function normalizePermissions(perms){
+  const p = perms && typeof perms === 'object' ? perms : {}; return { tabs: p.tabs || {}, parts: p.parts || {} };
+}
+
+function savePermsFromModal(){
+  if (!CURRENT_PERM_USER) return; const users = loadUsers(); const i = users.findIndex(u => u.id === CURRENT_PERM_USER); if (i === -1) return;
+  const tabs = {}; const parts = {}; Object.keys(PERMISSION_TABS).forEach(k => { const c = qs(`#perm-tab-${k}`); const s = qs(`#perm-parts-${k}`); tabs[k] = !!(c && c.checked); parts[k] = s ? [...s.options].filter(o => o.selected).map(o => o.value) : []; });
+  users[i].permissions = { tabs, parts }; saveUsers(users); qs('#perm-modal')?.classList.add('hidden');
+}
+
+// Wire up after base script listeners
+document.addEventListener('DOMContentLoaded', () => {
+  try { ensureUserAndPermModals(); } catch {}
+  const addBtn = qs('#add-user'); addBtn && addBtn.addEventListener('click', () => openUserModalX());
+  // Initial render with extended schema
+  try { renderUsers(); updateKpis(); renderUserPill(); } catch {}
+});
+
+
+// Operator weekly schedule modal and helpers
+function ensureScheduleModal(){
+  if (qs('#schedule-modal')) return;
+  const modal = document.createElement('div');
+  modal.id='schedule-modal'; modal.className='modal hidden'; modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true');
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width:640px; max-height:80vh; overflow:auto;">
+      <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <h3 style="margin:0;">????? ???? ???? (?????)</h3>
+        <button type="button" class="icon-btn" id="sch-close" aria-label="????">×</button>
+      </div>
+      <div class="form">
+        <label class="field"><span>????? ??????? ?? ?? ???</span>
+          <select id="sch-count">
+            <option value="2">2 (?? ???? ??? + ?? ???????)</option>
+            <option value="4">4 (?? ???? ??? + ?? ???????)</option>
+          </select>
+        </label>
+        <div id="sch-grid" class="periods-list"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="sch-cancel">??????</button>
+        <button type="button" class="btn primary" id="sch-save">?????</button>
+      </div>
+      <p id="sch-msg" class="hint"></p>
+    </div>`;
+  document.body.appendChild(modal);
+  const close = () => { document.body.style.overflow = ''; qs('#schedule-modal')?.classList.add('hidden'); };
+  qs('#sch-cancel')?.addEventListener('click', close);
+  qs('#sch-close')?.addEventListener('click', close);
+  modal.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') close(); });
+  qs('#sch-save')?.addEventListener('click', saveScheduleFromModal);
+}
+
+const DAYS_FA = ['????','??????','??????','???????','????????','???????','????'];
+function defaultWeeklySchedule(intervalCount){
+  const n = (intervalCount === 4) ? 4 : 2;
+  const emptyIntervals = (m) => Array.from({length:m}, (_,i) => ({ start: '09:00', end: i%2===0 ? '13:00' : '17:00' }));
+  return { type: n, days: DAYS_FA.map((d, idx) => ({ day: idx, label: d, intervals: emptyIntervals(n) })) };
+}
+
+function openScheduleModal(id){
+  ensureScheduleModal();
+  const users = loadUsers();
+  const u = users.find(x => x.id === (id || (typeof CURRENT_EDIT_USER !== 'undefined' ? CURRENT_EDIT_USER : '')));
+  if (!u) return;
+  const sched = u.schedule || defaultWeeklySchedule(2);
+  const countSel = qs('#sch-count'); if (countSel) countSel.value = String(sched.type || 2);
+  // New timeline-based renderer
+  if (typeof renderScheduleGridTimeline === 'function') {
+    renderScheduleGridTimeline(sched);
+  } else {
+    renderScheduleGrid(sched);
+  }
+  qs('#schedule-modal')?.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  qs('#sch-count')?.addEventListener('change', (e) => { const n = parseInt(e.target.value, 10) === 4 ? 4 : 2; (typeof renderScheduleGridTimeline==='function'?renderScheduleGridTimeline:renderScheduleGrid)({ type: n, days: defaultWeeklySchedule(n).days }); }, { once: true });
+}
+
+function renderScheduleGrid(sched){
+  const grid = qs('#sch-grid'); if (!grid) return; grid.innerHTML='';
+  const n = (sched.type===4)?4:2;
+  (sched.days||[]).forEach(day => {
+    const item = document.createElement('div');
+    item.className = 'card'; item.style.padding = '10px';
+    const head = document.createElement('div'); head.className='hint'; head.textContent = day.label; item.appendChild(head);
+    const row = document.createElement('div'); row.className='grid full';
+    for (let i=0;i<n;i++){
+      const cur = day.intervals?.[i] || { start:'09:00', end:'13:00' };
+      const startId = `sch-${day.day}-${i}-start`; const endId = `sch-${day.day}-${i}-end`;
+      const f1 = document.createElement('label'); f1.className = 'field'; f1.innerHTML = `<span>???? ${i+1}</span><input type="time" id="${startId}" value="${cur.start}" />`;
+      const f2 = document.createElement('label'); f2.className = 'field'; f2.innerHTML = `<span>????? ${i+1}</span><input type="time" id="${endId}" value="${cur.end}" />`;
+      row.appendChild(f1); row.appendChild(f2);
+    }
+    item.appendChild(row); grid.appendChild(item);
+  });
+}
+
+// Timeline-based schedule editor (24h bar with handles)
+// Uses hidden time inputs with same ids so saveScheduleFromModal keeps working
+const DAY_MIN_OP = 24*60;
+function toMinOp(hhmm){
+  if (!hhmm || typeof hhmm !== 'string') return 0;
+  const p = hhmm.split(':');
+  const h = parseInt(p[0]||'0',10); const m = parseInt(p[1]||'0',10);
+  let t = (isNaN(h)?0:h)*60 + (isNaN(m)?0:m);
+  if (!Number.isFinite(t)) t = 0;
+  return Math.max(0, Math.min(DAY_MIN_OP, t));
+}
+function toHHMMOp(min){
+  const x = Math.max(0, Math.min(DAY_MIN_OP, Number(min)||0));
+  const hh = String(Math.floor(x/60)).padStart(2,'0');
+  const mm = String(x%60).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+function renderScheduleGridTimeline(sched){
+  const grid = qs('#sch-grid'); if (!grid) return; grid.innerHTML='';
+  const n = (sched.type===4)?4:2;
+  (sched.days||[]).forEach(day => {
+    const card = document.createElement('div');
+    card.className = 'card'; card.style.padding = '10px';
+    const head = document.createElement('div'); head.className='hint'; head.textContent = day.label; card.appendChild(head);
+
+    const inputsWrap = document.createElement('div'); inputsWrap.className='grid full';
+    const intervals = [];
+    for (let i=0;i<n;i++){
+      const cur = (day.intervals && day.intervals[i]) ? day.intervals[i] : { start:'09:00', end:'13:00' };
+      intervals.push({ start: cur.start, end: cur.end });
+      const f1 = document.createElement('label'); f1.className='field'; f1.style.display='none';
+      f1.innerHTML = `<span>start ${i+1}</span><input type="time" id="sch-${day.day}-${i}-start" value="${cur.start}" />`;
+      const f2 = document.createElement('label'); f2.className='field'; f2.style.display='none';
+      f2.innerHTML = `<span>end ${i+1}</span><input type="time" id="sch-${day.day}-${i}-end" value="${cur.end}" />`;
+      inputsWrap.appendChild(f1); inputsWrap.appendChild(f2);
+    }
+
+    const tl = document.createElement('div'); tl.className='timeline';
+    tl.innerHTML = '<div class="timeline-scale"></div><div class="timeline-track"></div>';
+    card.appendChild(tl);
+    const scaleEl = tl.querySelector('.timeline-scale');
+    const trackEl = tl.querySelector('.timeline-track');
+    const minutesToPct = (min) => (Math.max(0, Math.min(DAY_MIN_OP, min))/DAY_MIN_OP)*100;
+
+    function computeBoundaries(){
+      const vals = [0];
+      intervals.forEach(x => { vals.push(toMinOp(x.start)); vals.push(toMinOp(x.end)); });
+      vals.push(DAY_MIN_OP);
+      const u = Array.from(new Set(vals.sort((a,b)=>a-b)));
+      if (u[0] !== 0) u.unshift(0);
+      if (u[u.length-1] !== DAY_MIN_OP) u.push(DAY_MIN_OP);
+      return u;
+    }
+    let boundaries = computeBoundaries();
+    let edgeMap = {};
+    function rebuildEdgeMap(){
+      edgeMap = {};
+      intervals.forEach((it, idx) => {
+        const s = toMinOp(it.start), e = toMinOp(it.end);
+        const si = boundaries.findIndex(v => v === s);
+        const ei = boundaries.findIndex(v => v === e);
+        if (si>0 && si<boundaries.length-1){ (edgeMap[si] ||= []).push({i:idx, edge:'start'}); }
+        if (ei>0 && ei<boundaries.length-1){ (edgeMap[ei] ||= []).push({i:idx, edge:'end'}); }
+      });
+    }
+    rebuildEdgeMap();
+
+    function renderScale(){
+      if (!scaleEl) return; scaleEl.innerHTML='';
+      for (let h=0; h<=24; h+=2){
+        const pct = (h/24)*100;
+        const tick = document.createElement('div'); tick.className='tick'; tick.style.left = pct+'%'; scaleEl.appendChild(tick);
+        const lab = document.createElement('div'); lab.className='label'; lab.style.left = pct+'%'; lab.textContent = String(h).padStart(2,'0')+':00'; scaleEl.appendChild(lab);
+      }
+    }
+    function isWorkSegment(a,b){
+      const mid = (a+b)/2; return intervals.some(it => toMinOp(it.start) < mid && toMinOp(it.end) > mid);
+    }
+
+    let dragging = null;
+    function renderTrack(){
+      if (!trackEl) return; trackEl.innerHTML='';
+      for (let i=0;i<boundaries.length-1;i++){

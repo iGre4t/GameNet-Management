@@ -1,0 +1,250 @@
+const AUTH_KEY = "gamenet_auth";
+const PASS_KEY = "gamenet_admin_password";
+const CURRENT_USER_KEY = 'gamenet_current_user_id';
+
+// Demo in-memory users
+const USER_DB = [
+  { name: "????", email: "admin@example.com", active: true },
+  { name: "????? 1", phone: "09123456789", email: "", active: true }
+];
+
+function qs(sel, root = document) { return root.querySelector(sel); }
+function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
+
+function setView(loggedIn) {
+  const login = qs('#login-view');
+  const app = qs('#app-view');
+  if (loggedIn) {
+    login.classList.add('hidden');
+    app.classList.remove('hidden');
+    renderUsers();
+    updateKpis();
+    try { renderUserPill(); } catch {}
+  } else {
+    app.classList.add('hidden');
+    login.classList.remove('hidden');
+  }
+}
+
+function updateKpis() {
+  const total = USER_DB.length;
+  const active = USER_DB.filter(u => u.active).length;
+  qs('#kpi-users').textContent = total;
+  qs('#kpi-active').textContent = active;
+}
+
+function renderUsers() {
+  const tbody = qs('#users-body');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  // Show users that are logged in and have no email
+  USER_DB.filter(u => (!u.email || u.email === '') && u.active).forEach(u => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${u.name}</td><td>${u.phone || ''}</td><td>${u.active ? '????' : '???????'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function setActiveTab(tab) {
+  qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  qsa('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
+  const titles = { home: '????', users: '???????', settings: '???????' };
+  const el = qs('#page-title');
+  if (el) el.textContent = titles[tab] || '';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Init password storage
+  if (!localStorage.getItem(PASS_KEY)) localStorage.setItem(PASS_KEY, '1234');
+  const token = localStorage.getItem(AUTH_KEY);
+  setView(Boolean(token));
+
+  // Login
+  const form = qs('#login-form');
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const user = qs('#username').value.trim();
+    const pass = qs('#password').value;
+    const err = qs('#login-error');
+    const saved = localStorage.getItem(PASS_KEY) || '1234';
+    if (user === 'admin' && pass === saved) {
+      localStorage.setItem(AUTH_KEY, 'ok');
+      try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
+      err.textContent = '';
+      setView(true);
+      setActiveTab('home');
+      try { renderUserPill(); } catch {}
+    } else {
+      err.textContent = '???? ?????? ???. ???? ??????? ?? ????? ????.';
+    }
+  });
+
+  // Logout
+  qs('#logout')?.addEventListener('click', () => {
+    localStorage.removeItem(AUTH_KEY);
+    try { localStorage.removeItem(CURRENT_USER_KEY); } catch {}
+    setView(false);
+  });
+
+  // Tabs
+  qsa('.nav-item').forEach(btn => btn.addEventListener('click', () => setActiveTab(btn.dataset.tab)));
+
+  // Live clock using selected timezone; default Tehran (Asia/Tehran)
+  const TIMEZONE_KEY = 'gamenet_timezone';
+  function getTimeZone(){
+    return localStorage.getItem(TIMEZONE_KEY) || 'Asia/Tehran';
+  }
+  function renderClock(){
+    const el = qs('#live-clock'); if (!el) return;
+    const tz = getTimeZone();
+    const now = new Date();
+    const time = now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute:'2-digit', second:'2-digit', hour12:false, timeZone: tz });
+    const dateFa = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { weekday:'long', year:'numeric', month:'long', day:'numeric', timeZone: tz }).format(now);
+    el.innerHTML = `<span class="time">${time}</span><span class="date">${dateFa}</span>`;
+  }
+  renderClock();
+  setInterval(renderClock, 1000);
+  try { renderUserPill(); } catch {}
+
+  // Sidebar toggle (compact)
+  qs('#sidebarToggle')?.addEventListener('click', () => {
+    const app = qs('#app-view');
+    if (!app) return;
+    // Toggle collapsed class instead of inline styles so CSS can hide labels
+    app.classList.toggle('collapsed');
+    // Clear any previous inline width to let CSS take over
+    app.style.gridTemplateColumns = '';
+  });
+
+  // Add user via modal (phone + password)
+  const openUserModal = () => qs('#user-modal')?.classList.remove('hidden');
+  const closeUserModal = () => {
+    const m = qs('#user-modal');
+    if (!m) return;
+    m.classList.add('hidden');
+    const f = qs('#user-form');
+    if (f) f.reset();
+    const msg = qs('#user-form-msg');
+    if (msg) msg.textContent = '';
+  };
+
+  qs('#add-user')?.addEventListener('click', openUserModal);
+  qs('#user-cancel')?.addEventListener('click', closeUserModal);
+  qs('#user-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const phone = qs('#user-phone').value.trim();
+    const pass = qs('#user-pass').value;
+    const msg = qs('#user-form-msg');
+    if (!/^\d{11}$/.test(phone)) {
+      msg.textContent = '????? ???? ???? ?? ??? ????.';
+      return;
+    }
+    if (!pass || pass.length < 4) {
+      msg.textContent = '??? ????? ? ??????? ????.';
+      return;
+    }
+    const idx = USER_DB.length + 1;
+    USER_DB.push({ name: `????? ${idx}`, phone, email: "", password: pass, active: true });
+    renderUsers();
+    updateKpis();
+    closeUserModal();
+  });
+
+  // Privacy: change admin password
+  qs('#privacy-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const cur = qs('#current-pass').value;
+    const np = qs('#new-pass').value;
+    const cp = qs('#confirm-pass').value;
+    const msg = qs('#privacy-msg');
+    const saved = localStorage.getItem(PASS_KEY) || '1234';
+    if (cur !== saved) {
+      msg.textContent = '??? ???? ?????? ???.';
+      return;
+    }
+    if (np.length < 4) {
+      msg.textContent = '??? ???? ????? ? ??????? ????.';
+      return;
+    }
+    if (np !== cp) {
+      msg.textContent = '????? ??? ???? ????? ????.';
+      return;
+    }
+    localStorage.setItem(PASS_KEY, np);
+    msg.textContent = '??? ?? ?????? ??????????? ??.';
+  });
+});
+
+// --- Developer settings (tab) + favicon cropper injection ---
+(function(){
+  const SITE_TITLE_KEY = 'gamenet_site_title';
+  const FAVICON_KEY = 'gamenet_favicon_data';
+  const TIMEZONE_KEY = 'gamenet_timezone';
+  const TIME_OFFSET_KEY = 'gamenet_time_offset_min'; // kept for backward compatibility
+
+  const U = (s) => s;
+  const STR_DEVELOPER_SETTINGS = "\u062A\u0646\u0638\u06CC\u0645\u0627\u062A \u062A\u0648\u0633\u0639\u0647 \u062F\u0647\u0646\u062F\u0647";
+  const STR_SITE_TITLE = "\u0639\u0646\u0648\u0627\u0646 \u0633\u0627\u06CC\u062A";
+  const STR_FAVICON = "\u0641\u0627\u0648\u0622\u06CC\u06A9\u0648\u0646 \u0633\u0627\u06CC\u062A";
+  const STR_SET_CHANGE_FAVICON = "\u062A\u0646\u0638\u06CC\u0645/\u062A\u063A\u06CC\u06CC\u0631 \u0641\u0627\u0648\u0622\u06CC\u06A9\u0648\u0646";
+  const STR_PICK_IMAGE = "\u0627\u0646\u062A\u062E\u0627\u0628 \u062A\u0635\u0648\u06CC\u0631";
+  const STR_ZOOM = "\u0628\u0632\u0631\u06AF\u0646\u0645\u0627\u06CC\u06CC";
+  const STR_CANCEL = "\u0627\u0646\u0635\u0631\u0627\u0641";
+  const STR_SAVE = "\u0630\u062E\u06CC\u0631\u0647";
+  const STR_TIMEZONE = "?????? ???? ????";
+
+  function ensureStyles(){
+    if (document.getElementById('dev-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'dev-styles';
+    style.textContent = `
+    .favicon-icon{width:20px;height:20px;border-radius:4px;object-fit:contain;background:transparent}
+    .favicon-row{display:flex;align-items:center;gap:10px}
+    .cropper-wrap{width:100%;max-width:256px;aspect-ratio:1/1;border:1px solid var(--border);border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f8f8f8}
+    #favicon-canvas{width:100%;height:auto;display:block}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureSidebarFavicon(){
+    const hdr = document.querySelector('.sidebar-header');
+    if (!hdr) return null;
+    let img = document.getElementById('sidebar-favicon');
+    if (!img){
+      img = document.createElement('img');
+      img.id = 'sidebar-favicon';
+      img.className = 'favicon-icon hidden';
+      img.alt = 'favicon';
+      const title = hdr.querySelector('.title');
+      hdr.insertBefore(img, title || null);
+    }
+    return img;
+  }
+
+  function getFaviconLink(){
+    let link = document.querySelector('link[rel="icon"]');
+    if (!link){
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
+    }
+    return link;
+  }
+
+  function applyTitle(title){
+    const t = title || '';
+    const sdTitle = document.querySelector('.sidebar .title');
+    if (sdTitle) sdTitle.textContent = t || sdTitle.textContent;
+    if (t) document.title = t;
+    const input = document.getElementById('site-title');
+    if (input && input.value !== t) input.value = t;
+  }
+
+  function applyFavicon(dataUrl){
+    const link = getFaviconLink();
+    const img = ensureSidebarFavicon();
+    const preview = document.getElementById('favicon-preview');
+    if (dataUrl){
+      link.href = dataUrl;
+      if (img){ img.src = dataUrl; img.classList.remove('hidden'); }
+      if (preview){ preview.src = dataUrl; preview.classList.remove('hidden'); }

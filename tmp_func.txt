@@ -1,0 +1,28 @@
+})();
+const AUTH_KEY = "gamenet_auth";
+const PASS_KEY = "gamenet_admin_password";
+const CURRENT_USER_KEY = 'gamenet_current_user_id';
+
+// Demo in-memory users
+const USER_DB = [
+  { name: "????", email: "admin@example.com", active: true },
+  { name: "????? 1", phone: "09123456789", email: "", active: true }
+];
+
+function qs(sel, root = document) { return root.querySelector(sel); }
+function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
+
+function setView(loggedIn) {
+  const login = qs('#login-view');
+  const app = qs('#app-view');
+  if (loggedIn) {
+    login.classList.add('hidden');
+    app.classList.remove('hidden');
+    renderUsers();
+    updateKpis();
+    try { renderUserPill(); } catch {}
+  } else {
+    app.classList.add('hidden');
+    login.classList.remove('hidden');
+  }
+}

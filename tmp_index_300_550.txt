@@ -1,0 +1,84 @@
+      <div class="modal-card">
+        <h3 id="system-modal-title">تنظیمات سیستم</h3>
+        <form id="system-form" class="form">
+          <div class="grid full">
+            <label class="field">
+              <span>نام سیستم</span>
+              <input id="system-name" type="text" required />
+            </label>
+          </div>
+          <div class="grid full">
+            <label class="field">
+              <span>تک دسته (ریال/ساعت)</span>
+              <input id="price-1p" class="price-input" type="text" inputmode="numeric" required />
+            </label>
+            <label class="field">
+              <span>دو دسته (ریال/ساعت)</span>
+              <input id="price-2p" class="price-input" type="text" inputmode="numeric" required />
+            </label>
+            <label class="field">
+              <span>سه دسته (ریال/ساعت)</span>
+              <input id="price-3p" class="price-input" type="text" inputmode="numeric" required />
+            </label>
+            <label class="field">
+              <span>چهار دسته (ریال/ساعت)</span>
+              <input id="price-4p" class="price-input" type="text" inputmode="numeric" required />
+            </label>
+          </div>
+          <div class="grid full">
+            <label class="field">
+              <span>تولد (ریال)</span>
+              <input id="price-birthday" class="price-input" type="text" inputmode="numeric" required />
+            </label>
+            <label class="field">
+              <span>فیلم (ریال)</span>
+              <input id="price-film" class="price-input" type="text" inputmode="numeric" required />
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="system-cancel">انصراف</button>
+            <button type="submit" class="btn primary">ذخیره</button>
+          </div>
+          <p id="system-form-msg" class="hint"></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Periods Modal -->
+    <div id="periods-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="periods-modal-title">
+      <div class="modal-card" style="max-width:640px;">
+        <h3 id="periods-modal-title">تنظیم بازه‌های زمانی (۲۴ ساعته)</h3>
+        <div class="form">
+          <div class="hint">بین ۱ تا ۵ بازه تعریف کنید؛ کل ۲۴ ساعت را بدون هم‌پوشانی و بدون فاصله پوشش دهید.</div>
+          <div id="periods-list" class="periods-list"></div>
+          <div style="display:flex; gap:8px;">
+            <button id="add-period" type="button" class="btn">+ افزودن بازه</button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="periods-cancel">انصراف</button>
+          <button type="button" class="btn primary" id="periods-save">ذخیره</button>
+        </div>
+        <p id="periods-msg" class="hint"></p>
+      </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div class="modal-card">
+        <h3 id="confirm-title">تایید عملیات</h3>
+        <p id="confirm-message" class="hint" style="margin:8px 0 0"></p>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="confirm-cancel">انصراف</button>
+          <button type="button" class="btn primary" id="confirm-ok">تایید</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Undo Toast -->
+    <div id="undo-toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script src="branches.js"></script>
+    <script src="app.js"></script>
+  </body>
+  </html>

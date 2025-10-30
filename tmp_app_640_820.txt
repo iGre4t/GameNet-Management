@@ -1,0 +1,181 @@
+            <label class="field">
+              <span>??? ????????</span>
+              <input id="user-last" type="text" required />
+            </label>
+          </div>
+          <div class="grid full">
+            <label class="field">
+              <span>????/?????????? (11 ???)</span>
+              <input id="user-phone" type="text" inputmode="numeric" pattern="^\\d{11}$" placeholder="09xxxxxxxxx" required />
+            </label>
+            <label class="field">
+              <span>?? ???? (??????? ??????)</span>
+              <input id="user-code" type="text" inputmode="numeric" pattern="^\\d{5}$" readonly />
+            </label>
+          </div>
+          <label class="field">
+            <span>???????</span>
+            <input id="user-pass" type="password" minlength="4" placeholder="******" />
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="user-cancel">??????</button>
+            <button type="submit" class="btn primary" id="user-save">?????</button>
+          </div>
+          <p id="user-form-msg" class="hint"></p>
+        </form>`;
+    }
+    qs('#user-cancel')?.addEventListener('click', () => qs('#user-modal')?.classList.add('hidden'));
+    qs('#user-form')?.addEventListener('submit', onUserFormSubmitX);
+    // Inject role selector and schedule button neatly if missing
+    try {
+      const form = qs('#user-form');
+      if (form && !qs('#user-type')){
+        const grid = document.createElement('div');
+        grid.className = 'grid full';
+        grid.innerHTML = `
+          <label class="field"><span>??? ?????</span>
+            <select id="user-type">
+              <option value="manager">????? ????</option>
+              <option value="operator">?????</option>
+            </select>
+          </label>
+          <label class="field" id="operator-tools" style="display:none;"><span>???? ???? (?????)</span><button type="button" id="edit-schedule" class="btn">????? ??????</button></label>`;
+        // insert before password field
+        const passField = qs('#user-pass')?.closest('label');
+        if (passField && passField.parentElement === form){
+          form.insertBefore(grid, passField);
+        } else {
+          form.appendChild(grid);
+        }
+        qs('#user-type')?.addEventListener('change', (e) => {
+          const tools = qs('#operator-tools');
+          if (tools) tools.style.display = (e.target.value === 'operator') ? 'block' : 'none';
+        });
+        qs('#edit-schedule')?.addEventListener('click', () => openScheduleModal(CURRENT_EDIT_USER));
+      }
+    } catch {}
+  }
+  // Create permission modal if missing
+  if (!qs('#perm-modal')){
+    const modal = document.createElement('div');
+    modal.id = 'perm-modal'; modal.className = 'modal hidden';
+    modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true');
+    modal.innerHTML = `
+      <div class="modal-card large">
+        <h3 id="perm-modal-title">??????? ?????</h3>
+        <div class="sub-layout">
+          <aside class="sub-sidebar">
+            <div class="sub-header">?????</div>
+            <nav id="perm-subnav" class="sub-nav"></nav>
+          </aside>
+          <div class="sub-content">
+            <div id="perm-content"></div>
+            <div class="modal-actions">
+              <button type="button" class="btn" id="perm-cancel">??????</button>
+              <button type="button" class="btn primary" id="perm-save">?????</button>
+            </div>
+            <p id="perm-msg" class="hint"></p>
+          </div>
+      </div>`;
+    document.body.appendChild(modal);
+  }
+  qs('#perm-cancel')?.addEventListener('click', () => qs('#perm-modal')?.classList.add('hidden'));
+  qs('#perm-save')?.addEventListener('click', savePermsFromModal);
+}
+
+function openUserModalX(id){
+  const users = loadUsers();
+  const isEdit = !!id; CURRENT_EDIT_USER = id || null;
+  const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? '?????? ?????' : '?????? ?????';
+  const f = qs('#user-first'), l = qs('#user-last'), p = qs('#user-phone'), c = qs('#user-code'), pw = qs('#user-pass');
+  const typeSel = qs('#user-type'); const tools = qs('#operator-tools'); if (tools) tools.style.display = 'none';
+  const msg = qs('#user-form-msg'); if (msg) msg.textContent = '';
+  if (isEdit){
+    const u = users.find(x => x.id === id); if (!u) return;
+    f.value = u.first || ''; l.value = u.last || ''; p.value = u.phone || '';
+    c.value = u.code || ''; pw.value = '';
+    if (typeSel) typeSel.value = u.type || 'operator';
+    if (tools) tools.style.display = ((u.type||'operator') === 'operator') ? 'block' : 'none';
+  } else {
+    f.value = ''; l.value = ''; p.value = '';
+    c.value = genCode(users); pw.value = '';
+    if (typeSel) typeSel.value = 'operator';
+    if (tools) tools.style.display = 'block';
+  }
+  qs('#user-modal')?.classList.remove('hidden');
+}
+
+function onUserFormSubmitX(e){
+  e.preventDefault();
+  const first = qs('#user-first').value.trim();
+  const last = qs('#user-last').value.trim();
+  const phone = qs('#user-phone').value.trim();
+  const code = qs('#user-code').value.trim();
+  const pass = qs('#user-pass').value;
+  const type = (qs('#user-type')?.value) || 'operator';
+  const msg = qs('#user-form-msg');
+  if (!first || !last){ msg && (msg.textContent = '??? ? ??? ???????? ?????? ???.'); return; }
+  if (!/^\d{11}$/.test(phone)){ msg && (msg.textContent = '????? ???? ???? ?? ??? ????.'); return; }
+  if (!/^\d{5}$/.test(code)){ msg && (msg.textContent = '?? ???? ? ???? ????.'); return; }
+  const users = loadUsers();
+  if (CURRENT_EDIT_USER){
+    const i = users.findIndex(u => u.id === CURRENT_EDIT_USER); if (i === -1) return;
+    const old = users[i]; users[i] = { ...old, first, last, phone, type, password: pass ? pass : old.password };
+  } else {
+    const schedule = (type === 'operator') ? defaultWeeklySchedule(2) : null;
+    users.push({ id: genId(), code, first, last, phone, password: pass || '', active: true, email: '', type, schedule, permissions: { tabs: {}, parts: {} } });
+  }
+  saveUsers(users); renderUsers(); updateKpis();
+  qs('#user-modal')?.classList.add('hidden');
+}
+
+function openPermModal(id){
+  const users = loadUsers(); const u = users.find(x => x.id === id); if (!u) return;
+  CURRENT_PERM_USER = id; const sub = qs('#perm-subnav'); const con = qs('#perm-content');
+  if (!sub || !con) return; sub.innerHTML = ''; con.innerHTML = '';
+  const perms = normalizePermissions(u.permissions);
+  Object.entries(PERMISSION_TABS).forEach(([key, def], idx) => {
+    const b = document.createElement('button'); b.className = 'sub-item' + (idx===0?' active':''); b.dataset.tab = key; b.textContent = def.label; b.addEventListener('click', () => switchPermTab(key)); sub.appendChild(b);
+    const pane = document.createElement('div'); pane.className = 'perm-pane' + (idx===0?'':' hidden'); pane.dataset.tab = key;
+    const chkId = `perm-tab-${key}`; const selId = `perm-parts-${key}`;
+    const hasTab = !!perms.tabs[key];
+    pane.innerHTML = `
+      <div class="perm-row">
+        <label class="chk"><input type="checkbox" id="${chkId}" ${hasTab?'checked':''}/> ?????? ?? ?? «${def.label}»</label>
+        <label class="field">
+          <span>???? ??????</span>
+          <select id="${selId}" multiple></select>
+        </label>
+      </div>`;
+    con.appendChild(pane);
+    const sel = pane.querySelector('select');
+    def.parts.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; if (Array.isArray(perms.parts[key]) && perms.parts[key].includes(p)) o.selected = true; sel.appendChild(o); });
+  });
+  qs('#perm-modal')?.classList.remove('hidden');
+}
+
+function switchPermTab(key){
+  qsa('#perm-subnav .sub-item').forEach(b => b.classList.toggle('active', b.dataset.tab === key));
+  qsa('#perm-content .perm-pane').forEach(p => p.classList.toggle('hidden', p.dataset.tab !== key));
+}
+
+function normalizePermissions(perms){
+  const p = perms && typeof perms === 'object' ? perms : {}; return { tabs: p.tabs || {}, parts: p.parts || {} };
+}
+
+function savePermsFromModal(){
+  if (!CURRENT_PERM_USER) return; const users = loadUsers(); const i = users.findIndex(u => u.id === CURRENT_PERM_USER); if (i === -1) return;
+  const tabs = {}; const parts = {}; Object.keys(PERMISSION_TABS).forEach(k => { const c = qs(`#perm-tab-${k}`); const s = qs(`#perm-parts-${k}`); tabs[k] = !!(c && c.checked); parts[k] = s ? [...s.options].filter(o => o.selected).map(o => o.value) : []; });
+  users[i].permissions = { tabs, parts }; saveUsers(users); qs('#perm-modal')?.classList.add('hidden');
+}
+
+// Wire up after base script listeners
+document.addEventListener('DOMContentLoaded', () => {
+  try { ensureUserAndPermModals(); } catch {}
+  const addBtn = qs('#add-user'); addBtn && addBtn.addEventListener('click', () => openUserModalX());
+  // Initial render with extended schema
+  try { renderUsers(); updateKpis(); renderUserPill(); } catch {}
+});
+
+
+// Operator weekly schedule modal and helpers
