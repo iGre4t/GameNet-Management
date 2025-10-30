@@ -866,10 +866,15 @@ function openScheduleModal(id){
   if (!u) return;
   const sched = u.schedule || defaultWeeklySchedule(2);
   const countSel = qs('#sch-count'); if (countSel) countSel.value = String(sched.type || 2);
-  renderScheduleGrid(sched);
+  // New timeline-based renderer
+  if (typeof renderScheduleGridTimeline === 'function') {
+    renderScheduleGridTimeline(sched);
+  } else {
+    renderScheduleGrid(sched);
+  }
   qs('#schedule-modal')?.classList.remove('hidden');
   document.body.style.overflow = 'hidden';
-  qs('#sch-count')?.addEventListener('change', (e) => { const n = parseInt(e.target.value, 10) === 4 ? 4 : 2; renderScheduleGrid({ type: n, days: defaultWeeklySchedule(n).days }); }, { once: true });
+  qs('#sch-count')?.addEventListener('change', (e) => { const n = parseInt(e.target.value, 10) === 4 ? 4 : 2; (typeof renderScheduleGridTimeline==='function'?renderScheduleGridTimeline:renderScheduleGrid)({ type: n, days: defaultWeeklySchedule(n).days }); }, { once: true });
 }
 
 function renderScheduleGrid(sched){
@@ -888,6 +893,147 @@ function renderScheduleGrid(sched){
       row.appendChild(f1); row.appendChild(f2);
     }
     item.appendChild(row); grid.appendChild(item);
+  });
+}
+
+// Timeline-based schedule editor (24h bar with handles)
+// Uses hidden time inputs with same ids so saveScheduleFromModal keeps working
+const DAY_MIN_OP = 24*60;
+function toMinOp(hhmm){
+  if (!hhmm || typeof hhmm !== 'string') return 0;
+  const p = hhmm.split(':');
+  const h = parseInt(p[0]||'0',10); const m = parseInt(p[1]||'0',10);
+  let t = (isNaN(h)?0:h)*60 + (isNaN(m)?0:m);
+  if (!Number.isFinite(t)) t = 0;
+  return Math.max(0, Math.min(DAY_MIN_OP, t));
+}
+function toHHMMOp(min){
+  const x = Math.max(0, Math.min(DAY_MIN_OP, Number(min)||0));
+  const hh = String(Math.floor(x/60)).padStart(2,'0');
+  const mm = String(x%60).padStart(2,'0');
+  return `${hh}:${mm}`;
+}
+function renderScheduleGridTimeline(sched){
+  const grid = qs('#sch-grid'); if (!grid) return; grid.innerHTML='';
+  const n = (sched.type===4)?4:2;
+  (sched.days||[]).forEach(day => {
+    const card = document.createElement('div');
+    card.className = 'card'; card.style.padding = '10px';
+    const head = document.createElement('div'); head.className='hint'; head.textContent = day.label; card.appendChild(head);
+
+    const inputsWrap = document.createElement('div'); inputsWrap.className='grid full';
+    const intervals = [];
+    for (let i=0;i<n;i++){
+      const cur = (day.intervals && day.intervals[i]) ? day.intervals[i] : { start:'09:00', end:'13:00' };
+      intervals.push({ start: cur.start, end: cur.end });
+      const f1 = document.createElement('label'); f1.className='field'; f1.style.display='none';
+      f1.innerHTML = `<span>start ${i+1}</span><input type="time" id="sch-${day.day}-${i}-start" value="${cur.start}" />`;
+      const f2 = document.createElement('label'); f2.className='field'; f2.style.display='none';
+      f2.innerHTML = `<span>end ${i+1}</span><input type="time" id="sch-${day.day}-${i}-end" value="${cur.end}" />`;
+      inputsWrap.appendChild(f1); inputsWrap.appendChild(f2);
+    }
+
+    const tl = document.createElement('div'); tl.className='timeline';
+    tl.innerHTML = '<div class="timeline-scale"></div><div class="timeline-track"></div>';
+    card.appendChild(tl);
+    const scaleEl = tl.querySelector('.timeline-scale');
+    const trackEl = tl.querySelector('.timeline-track');
+    const minutesToPct = (min) => (Math.max(0, Math.min(DAY_MIN_OP, min))/DAY_MIN_OP)*100;
+
+    function computeBoundaries(){
+      const vals = [0];
+      intervals.forEach(x => { vals.push(toMinOp(x.start)); vals.push(toMinOp(x.end)); });
+      vals.push(DAY_MIN_OP);
+      const u = Array.from(new Set(vals.sort((a,b)=>a-b)));
+      if (u[0] !== 0) u.unshift(0);
+      if (u[u.length-1] !== DAY_MIN_OP) u.push(DAY_MIN_OP);
+      return u;
+    }
+    let boundaries = computeBoundaries();
+    let edgeMap = {};
+    function rebuildEdgeMap(){
+      edgeMap = {};
+      intervals.forEach((it, idx) => {
+        const s = toMinOp(it.start), e = toMinOp(it.end);
+        const si = boundaries.findIndex(v => v === s);
+        const ei = boundaries.findIndex(v => v === e);
+        if (si>0 && si<boundaries.length-1){ (edgeMap[si] ||= []).push({i:idx, edge:'start'}); }
+        if (ei>0 && ei<boundaries.length-1){ (edgeMap[ei] ||= []).push({i:idx, edge:'end'}); }
+      });
+    }
+    rebuildEdgeMap();
+
+    function renderScale(){
+      if (!scaleEl) return; scaleEl.innerHTML='';
+      for (let h=0; h<=24; h+=2){
+        const pct = (h/24)*100;
+        const tick = document.createElement('div'); tick.className='tick'; tick.style.left = pct+'%'; scaleEl.appendChild(tick);
+        const lab = document.createElement('div'); lab.className='label'; lab.style.left = pct+'%'; lab.textContent = String(h).padStart(2,'0')+':00'; scaleEl.appendChild(lab);
+      }
+    }
+    function isWorkSegment(a,b){
+      const mid = (a+b)/2; return intervals.some(it => toMinOp(it.start) < mid && toMinOp(it.end) > mid);
+    }
+
+    let dragging = null;
+    function renderTrack(){
+      if (!trackEl) return; trackEl.innerHTML='';
+      for (let i=0;i<boundaries.length-1;i++){
+        const a = boundaries[i], b = boundaries[i+1];
+        const seg = document.createElement('div');
+        seg.className = 'timeline-segment' + (isWorkSegment(a,b)? '' : ' alt');
+        seg.style.left = minutesToPct(a)+'%';
+        seg.style.width = (minutesToPct(b)-minutesToPct(a))+'%';
+        const label = document.createElement('div'); label.textContent = `${toHHMMOp(a)} - ${toHHMMOp(b)}`; seg.appendChild(label);
+        trackEl.appendChild(seg);
+      }
+      for (let i=0;i<boundaries.length;i++){
+        const locked = (i===0 || i===boundaries.length-1);
+        const h = document.createElement('div'); h.className='timeline-handle' + (locked?' locked':'');
+        h.style.left = minutesToPct(boundaries[i])+'%';
+        if (!locked){ h.addEventListener('pointerdown', (e)=>startDrag(e,i)); }
+        trackEl.appendChild(h);
+      }
+    }
+    function startDrag(e, idx){
+      e.preventDefault(); const rect = trackEl.getBoundingClientRect();
+      dragging = { index: idx, rect };
+      try { trackEl.setPointerCapture(e.pointerId); } catch {}
+      window.addEventListener('pointermove', onDrag);
+      window.addEventListener('pointerup', endDrag, { once: true });
+    }
+    function onDrag(e){
+      if (!dragging) return; const { index, rect } = dragging;
+      let pct = ((e.clientX - rect.left) / rect.width) * 100;
+      const minGap = 5; // minutes
+      const leftBound = boundaries[index-1] + minGap;
+      const rightBound = boundaries[index+1] - minGap;
+      let min = Math.round((pct/100)*DAY_MIN_OP);
+      min = Math.max(leftBound, Math.min(rightBound, min));
+      boundaries[index] = min;
+      const list = edgeMap[index] || [];
+      list.forEach(({i,edge}) => {
+        const id = edge === 'start' ? `sch-${day.day}-${i}-start` : `sch-${day.day}-${i}-end`;
+        const input = document.getElementById(id);
+        if (input) input.value = toHHMMOp(min);
+        if (edge==='start') intervals[i].start = toHHMMOp(min); else intervals[i].end = toHHMMOp(min);
+      });
+      renderTrack();
+    }
+    function endDrag(){ dragging = null; rebuildEdgeMap(); }
+
+    inputsWrap.addEventListener('input', () => {
+      for (let i=0;i<n;i++){
+        const s = qs(`#sch-${day.day}-${i}-start`)?.value || intervals[i].start;
+        const e = qs(`#sch-${day.day}-${i}-end`)?.value || intervals[i].end;
+        intervals[i] = { start: s, end: e };
+      }
+      boundaries = computeBoundaries(); rebuildEdgeMap(); renderTrack();
+    });
+
+    renderScale(); renderTrack();
+    card.appendChild(inputsWrap);
+    grid.appendChild(card);
   });
 }
 
