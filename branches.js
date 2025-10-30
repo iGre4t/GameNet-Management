@@ -1,4 +1,4 @@
-// Branches (مدیریت شعب)
+// Branches (تنظیمات شعب)
 function qs(sel, root = document) { return root.querySelector(sel); }
 function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
 
@@ -292,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize on switching to branches tab
   qsa('.nav-item').forEach(btn => btn.addEventListener('click', () => {
     if (btn.dataset.tab === 'branches') {
-      setTimeout(() => setTitle('مدیریت شعب'), 0);
+      setTimeout(() => setTitle('تنظیمات شعب'), 0);
       renderBranchSubnav();
       showManageView();
     }

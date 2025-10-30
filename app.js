@@ -1,5 +1,6 @@
 ﻿const AUTH_KEY = "gamenet_auth";
 const PASS_KEY = "gamenet_admin_password";
+const CURRENT_USER_KEY = 'gamenet_current_user_id';
 
 // Demo in-memory users
 const USER_DB = [
@@ -18,6 +19,7 @@ function setView(loggedIn) {
     app.classList.remove('hidden');
     renderUsers();
     updateKpis();
+    try { renderUserPill(); } catch {}
   } else {
     app.classList.add('hidden');
     login.classList.remove('hidden');
@@ -67,9 +69,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const saved = localStorage.getItem(PASS_KEY) || '1234';
     if (user === 'admin' && pass === saved) {
       localStorage.setItem(AUTH_KEY, 'ok');
+      try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
       err.textContent = '';
       setView(true);
       setActiveTab('home');
+      try { renderUserPill(); } catch {}
     } else {
       err.textContent = 'ورود ناموفق بود. لطفا اطلاعات را بررسی کنید.';
     }
@@ -78,6 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Logout
   qs('#logout')?.addEventListener('click', () => {
     localStorage.removeItem(AUTH_KEY);
+    try { localStorage.removeItem(CURRENT_USER_KEY); } catch {}
     setView(false);
   });
 
@@ -99,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   renderClock();
   setInterval(renderClock, 1000);
+  try { renderUserPill(); } catch {}
 
   // Sidebar toggle (compact)
   qs('#sidebarToggle')?.addEventListener('click', () => {
@@ -544,6 +550,26 @@ function saveUsers(arr){
   localStorage.setItem(USERS_KEY, JSON.stringify(arr));
 }
 
+// Return the currently logged-in user's record (defaults to admin)
+function getCurrentUser(){
+  try {
+    const id = localStorage.getItem(CURRENT_USER_KEY) || 'admin';
+    const users = loadUsers();
+    return users.find(u => u.id === id) || users.find(u => u.id === 'admin') || null;
+  } catch { return null; }
+}
+
+// Show user full name beside the clock in header
+function renderUserPill(){
+  const el = qs('#user-pill');
+  if (!el) return;
+  const u = getCurrentUser();
+  if (!u){ el.textContent = ''; return; }
+  const full = `${u.first || ''} ${u.last || ''}`.trim() || (u.name || '');
+  const initials = (full || '').split(' ').map(s => s[0]).join('').slice(0,2).toUpperCase();
+  el.innerHTML = `<span class="avatar">${initials || 'U'}</span><span class="name">${full}</span>`;
+}
+
 function genId(){ return Math.random().toString(36).slice(2, 10); }
 function genCode(existing){
   const used = new Set(existing.map(u => u.code));
@@ -749,6 +775,6 @@ document.addEventListener('DOMContentLoaded', () => {
   try { ensureUserAndPermModals(); } catch {}
   const addBtn = qs('#add-user'); addBtn && addBtn.addEventListener('click', () => openUserModalX());
   // Initial render with extended schema
-  try { renderUsers(); updateKpis(); } catch {}
+  try { renderUsers(); updateKpis(); renderUserPill(); } catch {}
 });
 
