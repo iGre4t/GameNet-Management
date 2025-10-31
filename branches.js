@@ -1183,6 +1183,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ths[2].textContent = 'عملیات';
         }
       } catch {}
+<<<<<<< HEAD
       // Headers set once above; removed observer to prevent loops
 
         };
@@ -1193,6 +1194,8 @@ document.addEventListener('DOMContentLoaded', () => {
           mo.observe(empThead, { childList: true, subtree: true, characterData: true });
         }
       } catch {}
+=======
+>>>>>>> parent of 9a80d3e (Beta 1.8.2.2)
       const titleEl = card.querySelector('h3');
       if (titleEl) titleEl.textContent = 'لیست کارمندان شعبه';
       const header = card.querySelector('.table-header');
