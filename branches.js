@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
     branches.forEach(b => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${b.name}</td><td><button class="btn" data-open="${b.id}">Ø¨Ø§Ø² Ú©Ø±Ø¯Ù†</button></td>`;
+      tr.innerHTML = `<td>${b.name}</td><td><button class="btn" data-open="${b.id}">مدیریت شعبه</button></td>`;
       tbody.appendChild(tr);
     });
     qsa('#branches-body button[data-open]').forEach(btn => {
@@ -94,13 +94,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'btn danger';
-        del.textContent = 'Ø­Ø°Ù';
+        del.textContent = 'حذف';
         del.setAttribute('data-del-branch', id);
         del.addEventListener('click', () => {
           const idx = branches.findIndex(b => b.id === id);
           const br = branches[idx];
           if (idx < 0 || !br) return;
-          openConfirm(`Ø­Ø°Ù Ø´Ø¹Ø¨Ù‡ Â«${br.name}Â»ØŸ Ø§ÛŒÙ† Ø¹Ù…Ù„ÛŒØ§Øª Ù‚Ø§Ø¨Ù„ Ø¨Ø§Ø²Ú¯Ø´Øª Ø§Ø³Øª.`, () => {
+          openConfirm(`حذف Ø´Ø¹Ø¨Ù‡ Â«${br.name}Â»ØŸ Ø§ÛŒÙ† Ø¹Ù…Ù„ÛŒØ§Øª Ù‚Ø§Ø¨Ù„ Ø¨Ø§Ø²Ú¯Ø´Øª Ø§Ø³Øª.`, () => {
             const removed = branches.splice(idx, 1)[0];
             saveBranches(branches);
             renderBranchesTable();
@@ -118,8 +118,8 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = '';
     (branch.systems || []).forEach(sys => {
       const tr = document.createElement('tr');
-      const btn = `<button class=\"btn\" data-sys=\"${sys.id}\">ØªÙ†Ø¸ÛŒÙ…Ø§Øª</button>`;
-      const status = (sys.prices == null) ? 'Ù‚ÛŒÙ…Øª Ù¾ÛŒØ´ÙØ±Ø¶' : 'Ù‚ÛŒÙ…Øª Ø¯Ù„Ø®ÙˆØ§Ù‡';
+      const btn = `<button class=\"btn\" data-sys=\"${sys.id}\">تنظیمات تعرفه</button>`;
+      const status = (sys.prices == null) ? 'تعرفه پیشفرض' : 'تعرفه دلخواه';
       tr.innerHTML = `<td><input type=\"checkbox\" class=\"row-select\" data-id=\"${sys.id}\" /></td><td>${sys.name}</td><td>${status}</td><td>${btn}</td>`;
       tbody.appendChild(tr);
     });
@@ -145,19 +145,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
       if (sys && statusTd){
         const hasOverride = !!(sys.pricesByPeriod && sys.pricesByPeriod[pid]);
-        statusTd.textContent = hasOverride ? 'Ù‚ÛŒÙ…Øª Ø¯Ù„Ø®ÙˆØ§Ù‡' : 'Ù‚ÛŒÙ…Øª Ù¾ÛŒØ´ÙØ±Ø¶';
+        statusTd.textContent = hasOverride ? 'تعرفه دلخواه' : 'تعرفه پیشفرض';
       }
       if (actionTd && !actionTd.querySelector('[data-del-sys]')){
         const del = document.createElement('button');
         del.type = 'button';
         del.className = 'btn danger';
-        del.textContent = 'Ø­Ø°Ù';
+        del.textContent = 'حذف';
         del.setAttribute('data-del-sys', ch.dataset.id);
         del.setAttribute('data-index', String(idx));
         del.addEventListener('click', () => {
           const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
           if (!sys) return;
-          openConfirm(`Ø­Ø°Ù Ø³ÛŒØ³ØªÙ… Â«${sys.name}Â»ØŸ Ø§ÛŒÙ† Ø¹Ù…Ù„ÛŒØ§Øª Ù‚Ø§Ø¨Ù„ Ø¨Ø§Ø²Ú¯Ø´Øª Ø§Ø³Øª.`, () => {
+          openConfirm(`حذف Ø³ÛŒØ³ØªÙ… Â«${sys.name}Â»ØŸ Ø§ÛŒÙ† Ø¹Ù…Ù„ÛŒØ§Øª Ù‚Ø§Ø¨Ù„ Ø¨Ø§Ø²Ú¯Ø´Øª Ø§Ø³Øª.`, () => {
             const i = (branch.systems||[]).findIndex(s => s.id === ch.dataset.id);
             if (i >= 0){
               const removed = branch.systems.splice(i, 1)[0];
@@ -656,7 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (boundaries.length > 2){
           const del = document.createElement('button');
           del.type = 'button'; del.className = 'seg-del'; del.textContent = 'Ã—';
-          del.title = 'Ø­Ø°Ù Ø§ÛŒÙ† Ø¨Ø§Ø²Ù‡';
+          del.title = 'حذف Ø§ÛŒÙ† Ø¨Ø§Ø²Ù‡';
           del.onclick = (ev) => { ev.stopPropagation(); removeSegment(i); };
           seg.appendChild(del);
         }
@@ -783,7 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lastUndo = info;
     const toast = qs('#undo-toast');
     if (!toast) return;
-    const text = (info.type === 'branch') ? `Ø´Ø¹Ø¨Ù‡ Â«${info.payload?.name || ''}Â» Ø­Ø°Ù Ø´Ø¯ â€” Ø¨Ø±Ø§ÛŒ Ø¨Ø§Ø²Ú¯Ø±Ø¯Ø§Ù†ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯ ÛŒØ§ Ctrl+Z` : `Ø³ÛŒØ³ØªÙ… Â«${info.payload?.name || ''}Â» Ø­Ø°Ù Ø´Ø¯ â€” Ø¨Ø±Ø§ÛŒ Ø¨Ø§Ø²Ú¯Ø±Ø¯Ø§Ù†ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯ ÛŒØ§ Ctrl+Z`;
+    const text = (info.type === 'branch') ? `Ø´Ø¹Ø¨Ù‡ Â«${info.payload?.name || ''}Â» حذف Ø´Ø¯ â€” Ø¨Ø±Ø§ÛŒ Ø¨Ø§Ø²Ú¯Ø±Ø¯Ø§Ù†ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯ ÛŒØ§ Ctrl+Z` : `Ø³ÛŒØ³ØªÙ… Â«${info.payload?.name || ''}Â» حذف Ø´Ø¯ â€” Ø¨Ø±Ø§ÛŒ Ø¨Ø§Ø²Ú¯Ø±Ø¯Ø§Ù†ÛŒ Ú©Ù„ÛŒÚ© Ú©Ù†ÛŒØ¯ ÛŒØ§ Ctrl+Z`;
     toast.textContent = text;
     toast.classList.remove('leaving');
     toast.classList.remove('hidden');
@@ -902,7 +902,7 @@ document.addEventListener('DOMContentLoaded', () => {
       catSel.value = item.categoryId || '';
       tr.innerHTML = `<td>${item.name||''}</td><td class="price-cell" data-type="buffet" data-id="${item.id}">${priceText}</td>`;
       const ctd = document.createElement('td'); ctd.appendChild(catSel); tr.appendChild(ctd);
-      const act = document.createElement('td'); const del = document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='Ø­Ø°Ù'; del.setAttribute('data-del-buffet', item.id); act.appendChild(del); tr.appendChild(act);
+      const act = document.createElement('td'); const del = document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-buffet', item.id); act.appendChild(del); tr.appendChild(act);
       tbody.appendChild(tr);
     });
   }
@@ -991,7 +991,7 @@ document.addEventListener('DOMContentLoaded', () => {
     (branch.kitchenItems||[]).forEach(item => {
       const tr = document.createElement('tr'); const priceText=(Number(item.price)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       tr.innerHTML = `<td>${item.name||''}</td><td class="price-cell" data-type="kitchen" data-id="${item.id}">${priceText}</td>`;
-      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='Ø­Ø°Ù'; del.setAttribute('data-del-kitchen', item.id); act.appendChild(del); tr.appendChild(act);
+      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-kitchen', item.id); act.appendChild(del); tr.appendChild(act);
       tbody.appendChild(tr);
     });
   }
@@ -1001,7 +1001,7 @@ document.addEventListener('DOMContentLoaded', () => {
     (branch.specialItems||[]).forEach(item => {
       const tr = document.createElement('tr'); const priceText=(Number(item.price)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       tr.innerHTML = `<td>${item.name||''}</td><td class="price-cell" data-type="special" data-id="${item.id}">${priceText}</td>`;
-      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='Ø­Ø°Ù'; del.setAttribute('data-del-special', item.id); act.appendChild(del); tr.appendChild(act);
+      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-special', item.id); act.appendChild(del); tr.appendChild(act);
       tbody.appendChild(tr);
     });
   }
