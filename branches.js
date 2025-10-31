@@ -893,6 +893,27 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => { const t = e.target; if (t && t.id === 'undo-toast'){ performUndo(); } });
   document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')){ performUndo(); } });
 
+  // Override toast popup for system deletion (clean Persian message)
+  function showUndoToast(info){
+    lastUndo = info;
+    const toast = qs('#undo-toast');
+    if (!toast) return;
+    const name = info?.payload?.name || '';
+    let text = '';
+    if (info.type === 'system') text = `سیستم «${name}» حذف شد. بازگردانی؟`;
+    else if (info.type === 'branch') text = `«${name}» حذف شد.`;
+    else if (info.type === 'buffet') text = `آیتم بوفه «${name}» حذف شد.`;
+    else if (info.type === 'kitchen') text = `آیتم آشپزخانه «${name}» حذف شد.`;
+    else if (info.type === 'special') text = `آیتم ویژه «${name}» حذف شد.`;
+    else text = `«${name}» حذف شد.`;
+    toast.innerHTML = `${text} <button id="undo-action" class="link" type="button">واگردانی</button>`;
+    toast.classList.remove('leaving'); toast.classList.remove('hidden');
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    const btn = qs('#undo-action');
+    if (btn) btn.onclick = function(e){ if (e && e.stopPropagation) e.stopPropagation(); performUndo(); };
+    toastTimer = setTimeout(function(){ hideUndoToast(); }, 5000);
+  }
+
   function setupBulkFormOverride(){
     const form = qs('#bulk-form');
     if (!form || form.__customHandlerAttached) return;
