@@ -1183,16 +1183,8 @@ document.addEventListener('DOMContentLoaded', () => {
           ths[2].textContent = 'عملیات';
         }
       } catch {}
-      // Enforce correct headers using entities and observe for changes
-      try {
-        const fixEmpHeaders = () => {
-          try {
-            const ths = card.querySelectorAll('thead th');
-            if (ths && ths.length >= 3) {
-              ths[1].innerHTML = '&#1588;&#1605;&#1575;&#1585;&#1607; &#1578;&#1604;&#1601;&#1606;'; // شماره تلفن
-              ths[2].innerHTML = '&#1593;&#1605;&#1604;&#1740;&#1575;&#1578;'; // عملیات
-            }
-          } catch {}
+      // Headers set once above; removed observer to prevent loops
+
         };
         fixEmpHeaders();
         const empThead = card.querySelector('thead');
@@ -1293,7 +1285,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderEmployeesTable(branch);
     // Populate employees from USER_DB if available
-    try {
+    try { const empSel = qs('#branch-employees');
       const users = (typeof USER_DB !== 'undefined' && Array.isArray(USER_DB)) ? USER_DB : [];
       const selected = new Set((branch.employees||[]).map(String));
       empSel.innerHTML = '';
