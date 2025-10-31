@@ -436,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
     saveBranches(branches);
     const msg = qs('#default-prices-msg');
-    if (msg) { msg.textContent = 'Ø°Ø®ÛŒØ±Ù‡ Ø´Ø¯'; setTimeout(() => msg.textContent = '', 1500); }
+    if (msg) { msg.textContent = 'قیمت های پیشفرض ذخیره شدند'; setTimeout(() => msg.textContent = '', 1500); }
     renderSystemsTable(branch);
   });
 
@@ -675,7 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (boundaries.length > 2){
           const del = document.createElement('button');
           del.type = 'button'; del.className = 'seg-del'; del.textContent = 'Ã—';
-          del.title = 'حذف Ø§ÛŒÙ† Ø¨Ø§Ø²Ù‡';
+          del.title = 'حذف بازه زمانی';
           del.onclick = (ev) => { ev.stopPropagation(); removeSegment(i); };
           seg.appendChild(del);
         }
@@ -893,20 +893,20 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('click', (e) => { const t = e.target; if (t && t.id === 'undo-toast'){ performUndo(); } });
   document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')){ performUndo(); } });
 
-  // Override toast popup for system deletion (clean Persian message)
+  // Override toast popup for system deletion (clean Persian message + Ctrl+Z hint)
   function showUndoToast(info){
     lastUndo = info;
     const toast = qs('#undo-toast');
     if (!toast) return;
     const name = info?.payload?.name || '';
     let text = '';
-    if (info.type === 'system') text = `سیستم «${name}» حذف شد. بازگردانی؟`;
+    if (info.type === 'system') text = `سیستم «${name}» حذف شد — برای بازگردانی دکمه زیر را بزنید یا Ctrl+Z.`;
     else if (info.type === 'branch') text = `«${name}» حذف شد.`;
     else if (info.type === 'buffet') text = `آیتم بوفه «${name}» حذف شد.`;
     else if (info.type === 'kitchen') text = `آیتم آشپزخانه «${name}» حذف شد.`;
     else if (info.type === 'special') text = `آیتم ویژه «${name}» حذف شد.`;
     else text = `«${name}» حذف شد.`;
-    toast.innerHTML = `${text} <button id="undo-action" class="link" type="button">واگردانی</button>`;
+    toast.innerHTML = `${text} <button id="undo-action" class="link" type="button">واگردانی</button> <span class="hint">یا Ctrl+Z</span>`;
     toast.classList.remove('leaving'); toast.classList.remove('hidden');
     if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
     const btn = qs('#undo-action');
