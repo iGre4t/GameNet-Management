@@ -1156,7 +1156,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <form id="employee-add-form" class="form" style="grid-auto-flow: column; align-items:center; grid-auto-columns: max-content; gap:8px;">
           <input id="employee-search" type="search" placeholder="جستجوی کاربران list="employee-suggest" />
           <datalist id="employee-suggest"></datalist>
-          <button type="submit" class="btn primary">OU?O�U^O_U+ UcOO�UcU+OU+</button>
+          <button type="submit" class="btn primary">اضافه کردن کاربر به کارمندان شعبه</button>
         </form>
       </div>
       <div class="table-wrapper">
