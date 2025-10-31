@@ -799,6 +799,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showUndoToast(info){
+    // Override: clean Persian toast with explicit Undo button
+    lastUndo = info;
+    const toastOverride = qs('#undo-toast');
+    if (toastOverride){
+      const name = info?.payload?.name || '';
+      let text = '';
+      if (info.type === 'branch') text = `حذف شعبه «${name}» انجام شد.`;
+      else if (info.type === 'system') text = `حذف سیستم «${name}» انجام شد.`;
+      else if (info.type === 'buffet') text = `حذف آیتم بوفه «${name}» انجام شد.`;
+      else if (info.type === 'kitchen') text = `حذف آیتم آشپزخانه «${name}» انجام شد.`;
+      else if (info.type === 'special') text = `حذف آیتم ویژه «${name}» انجام شد.`;
+      const action = 'بازگردانی';
+      toastOverride.innerHTML = `${text} <button id="undo-action" class="link" type="button">${action}</button>`;
+      toastOverride.classList.remove('leaving');
+      toastOverride.classList.remove('hidden');
+      if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+      const btn = qs('#undo-action');
+      if (btn) btn.onclick = (e) => { e.stopPropagation && e.stopPropagation(); performUndo(); };
+      toastTimer = setTimeout(() => { hideUndoToast(); }, 5000);
+      return; // skip old implementation below
+    }
     lastUndo = info;
     const toast = qs('#undo-toast');
     if (!toast) return;
@@ -838,6 +859,15 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBranches(branches);
         if (currentBranchId === br.id) renderSystemsTable(br);
       }
+    } else if (lastUndo.type === 'buffet'){
+      const br = branches.find(b => b.id === lastUndo.branchId);
+      if (br){ ensureBranchExtras(br); const idx = Math.max(0, Number(lastUndo.index)||0); br.buffetItems.splice(idx,0,lastUndo.payload); saveBranches(branches); if (currentBranchId === br.id) renderBuffet(br); }
+    } else if (lastUndo.type === 'kitchen'){
+      const br = branches.find(b => b.id === lastUndo.branchId);
+      if (br){ ensureBranchExtras(br); const idx = Math.max(0, Number(lastUndo.index)||0); br.kitchenItems.splice(idx,0,lastUndo.payload); saveBranches(branches); if (currentBranchId === br.id) renderKitchen(br); }
+    } else if (lastUndo.type === 'special'){
+      const br = branches.find(b => b.id === lastUndo.branchId);
+      if (br){ ensureBranchExtras(br); const idx = Math.max(0, Number(lastUndo.index)||0); br.specialItems.splice(idx,0,lastUndo.payload); saveBranches(branches); if (currentBranchId === br.id) renderSpecial(br); }
     }
     lastUndo = null; hideUndoToast();
   }
@@ -955,6 +985,27 @@ document.addEventListener('DOMContentLoaded', () => {
       saveBranches(branches);
     }
   });
+  // Save button for tech settings
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t && t.id === 'printer-settings-save'){
+      const br = branches.find(b => b.id === currentBranchId);
+      if (!br) return;
+      ensureBranchExtras(br);
+      const keyInput = qs('#printer-system-key');
+      br.printerSystemKey = String(keyInput?.value || '');
+      saveBranches(branches);
+      const toast = qs('#undo-toast');
+      if (toast){
+        lastUndo = null;
+        toast.textContent = 'تنظیمات فنی ذخیره شد.';
+        toast.classList.remove('leaving');
+        toast.classList.remove('hidden');
+        if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+        toastTimer = setTimeout(() => { hideUndoToast(); }, 2000);
+      }
+    }
+  });
   document.addEventListener('click', (e) => {
     const t = e.target;
     if (t && t.id === 'buffet-item-add'){
@@ -964,13 +1015,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (t && t.matches('button[data-del-buffet]')){
       const id=t.getAttribute('data-del-buffet'); const br=branches.find(b=>b.id===currentBranchId); if (!br) return; ensureBranchExtras(br);
-      const i=br.buffetItems.findIndex(x=>x.id===id); if(i>=0){ br.buffetItems.splice(i,1); saveBranches(branches); renderBuffet(br);} }
+      const i=br.buffetItems.findIndex(x=>x.id===id); if(i>=0){
+        const item = br.buffetItems[i];
+        openConfirm(`حذف «${item.name || ''}»؟ این عملیات قابل بازگشت است.`, () => {
+          br.buffetItems.splice(i,1); saveBranches(branches); renderBuffet(br);
+          showUndoToast({ type: 'buffet', payload: item, branchId: br.id, index: i });
+        });
+      } }
     if (t && t.matches('button[data-del-kitchen]')){
       const id=t.getAttribute('data-del-kitchen'); const br=branches.find(b=>b.id===currentBranchId); if (!br) return; ensureBranchExtras(br);
-      const i=br.kitchenItems.findIndex(x=>x.id===id); if(i>=0){ br.kitchenItems.splice(i,1); saveBranches(branches); renderKitchen(br);} }
+      const i=br.kitchenItems.findIndex(x=>x.id===id); if(i>=0){
+        const item = br.kitchenItems[i];
+        openConfirm(`حذف «${item.name || ''}»؟ این عملیات قابل بازگشت است.`, () => {
+          br.kitchenItems.splice(i,1); saveBranches(branches); renderKitchen(br);
+          showUndoToast({ type: 'kitchen', payload: item, branchId: br.id, index: i });
+        });
+      } }
     if (t && t.matches('button[data-del-special]')){
       const id=t.getAttribute('data-del-special'); const br=branches.find(b=>b.id===currentBranchId); if (!br) return; ensureBranchExtras(br);
-      const i=br.specialItems.findIndex(x=>x.id===id); if(i>=0){ br.specialItems.splice(i,1); saveBranches(branches); renderSpecial(br);} }
+      const i=br.specialItems.findIndex(x=>x.id===id); if(i>=0){
+        const item = br.specialItems[i];
+        openConfirm(`حذف «${item.name || ''}»؟ این عملیات قابل بازگشت است.`, () => {
+          br.specialItems.splice(i,1); saveBranches(branches); renderSpecial(br);
+          showUndoToast({ type: 'special', payload: item, branchId: br.id, index: i });
+        });
+      } }
   });
   document.addEventListener('change', (e) => {
     const t = e.target;
