@@ -207,6 +207,19 @@ tbody tr:hover { background: #fff5f6; }
 .modal-card.large { max-width: 920px; }
 .perm-row { display: grid; grid-template-columns: 1fr; gap: 10px; }
 .perm-row .field { margin: 0; }
+.chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.chip:hover { border-color: var(--primary); }
+.chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
 select[multiple] { min-height: 140px; padding: 8px; }
 
 /* Inner (tab) sidebar for شعب management */
