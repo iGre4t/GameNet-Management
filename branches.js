@@ -1183,6 +1183,24 @@ document.addEventListener('DOMContentLoaded', () => {
           ths[2].textContent = 'عملیات';
         }
       } catch {}
+      // Enforce correct headers using entities and observe for changes
+      try {
+        const fixEmpHeaders = () => {
+          try {
+            const ths = card.querySelectorAll('thead th');
+            if (ths && ths.length >= 3) {
+              ths[1].innerHTML = '&#1588;&#1605;&#1575;&#1585;&#1607; &#1578;&#1604;&#1601;&#1606;'; // شماره تلفن
+              ths[2].innerHTML = '&#1593;&#1605;&#1604;&#1740;&#1575;&#1578;'; // عملیات
+            }
+          } catch {}
+        };
+        fixEmpHeaders();
+        const empThead = card.querySelector('thead');
+        if (empThead){
+          const mo = new MutationObserver(() => fixEmpHeaders());
+          mo.observe(empThead, { childList: true, subtree: true, characterData: true });
+        }
+      } catch {}
       const titleEl = card.querySelector('h3');
       if (titleEl) titleEl.textContent = 'لیست کارمندان شعبه';
       const header = card.querySelector('.table-header');
