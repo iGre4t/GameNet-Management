@@ -914,13 +914,41 @@ document.addEventListener('DOMContentLoaded', () => {
     toastTimer = setTimeout(function(){ hideUndoToast(); }, 5000);
   }
 
+  // --- Final override: simplify undo toast (no button) ---
+  function showUndoToast(info){
+    lastUndo = info;
+    const toast = qs('#undo-toast');
+    if (!toast) return;
+    const name = info?.payload?.name || '';
+    let text = '';
+    if (info.type === 'system') text = `سیستم «${name}» حذف شد — برای بازگردانی Ctrl+Z را بزنید.`;
+    else if (info.type === 'branch') text = `«${name}» حذف شد — بازگردانی با Ctrl+Z.`;
+    else if (info.type === 'buffet') text = `آیتم بوفه «${name}» حذف شد — Ctrl+Z.`;
+    else if (info.type === 'kitchen') text = `آیتم آشپزخانه «${name}» حذف شد — Ctrl+Z.`;
+    else if (info.type === 'special') text = `آیتم ویژه «${name}» حذف شد — Ctrl+Z.`;
+    else text = `«${name}» حذف شد — Ctrl+Z.`;
+    toast.textContent = text;
+    toast.classList.remove('leaving'); toast.classList.remove('hidden');
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    toastTimer = setTimeout(function(){ hideUndoToast(); }, 5000);
+  }
+
+  // Capture Ctrl/Cmd+Z robustly (works over overlays)
+  window.addEventListener('keydown', function(e){
+    const isUndoCombo = (e.ctrlKey || e.metaKey) && (e.code === 'KeyZ' || (typeof e.key === 'string' && e.key.toLowerCase() === 'z'));
+    if (isUndoCombo && lastUndo){
+      e.preventDefault(); if (e.stopPropagation) e.stopPropagation();
+      performUndo();
+    }
+  }, true);
+
   function setupBulkFormOverride(){
     const form = qs('#bulk-form');
     if (!form || form.__customHandlerAttached) return;
     const clone = form.cloneNode(true);
     form.parentNode.replaceChild(clone, form);
     clone.__customHandlerAttached = true;
-    clone.addEventListener('submit', (e) => {
+  clone.addEventListener('submit', (e) => {
       e.preventDefault();
       const branch = branches.find(b => b.id === currentBranchId);
       if (!branch) return;
