@@ -25,14 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     b.address = (typeof b.address === 'string') ? b.address : '';
     b.phone1 = (typeof b.phone1 === 'string') ? b.phone1 : '';
     b.phone2 = (typeof b.phone2 === 'string') ? b.phone2 : '';
-    // Normalize employees to [{ id, role }]
-    const defRole = 'کارمند عادی';
-    if (!Array.isArray(b.employees)) b.employees = [];
-    if (b.employees.length && typeof b.employees[0] === 'string'){
-      b.employees = b.employees.map(id => ({ id: String(id), role: defRole }));
-    } else if (b.employees.length && typeof b.employees[0] === 'object'){
-      b.employees = b.employees.map(e => ({ id: String(e.id || ''), role: e.role ? String(e.role) : defRole })).filter(e => e.id);
-    }
+    b.employees = Array.isArray(b.employees) ? b.employees : [];
     return b;
   }
 
@@ -230,68 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const branch = branches.find(b => b.id === currentBranchId);
       ensureBranchExtras(branch);
       ensureGeneralTabElements();
-      // Update general tab label (in case of legacy text issues)
-      try { const tabs = qs('#branch-top-tabs'); const b = tabs?.querySelector('[data-branch-tab="general"]'); if (b) b.textContent = 'تنظیمات عمومی'; } catch {}
-      ensureEmployeesUi();
       renderBranchGeneral(branch);
-      // Employees UI: build once and render list
-      (function(){
-        const sec = qs('#branch-tab-general');
-        if (sec && !sec.querySelector('#employees-table-body')){
-          const card = document.createElement('div'); card.className = 'card';
-          card.innerHTML = `
-            <div class="table-header">
-              <h3>کارکنان شعبه</h3>
-              <div class="form" style="grid-auto-flow: column; grid-auto-columns: max-content; align-items:center; gap:8px;">
-                <label class="field" style="margin:0;">
-                  <span>کاربر</span>
-                  <select id="add-employee-select"></select>
-                </label>
-                <label class="field" style="margin:0;">
-                  <span>نقش</span>
-                  <select id="add-employee-role"></select>
-                </label>
-                <button type="button" class="btn primary" id="add-employee-btn">افزودن</button>
-              </div>
-            </div>
-            <div class="table-wrapper" style="margin-top:12px;">
-              <table>
-                <thead><tr><th>کاربر</th><th>نقش</th><th>اقدامات</th></tr></thead>
-                <tbody id="employees-table-body"></tbody>
-              </table>
-            </div>`;
-          sec.appendChild(card);
-        }
-        // Remove legacy multi-select if present
-        try { const legacy = sec && sec.querySelector('#branch-employees'); if (legacy){ const f = legacy.closest('.field'); f && f.remove(); } } catch {}
-        // Populate roles for add dropdown
-        const roleSel = qs('#add-employee-role'); if (roleSel){
-          const roles = ['مدیر شعبه','صندوق دار','مسئول آشپزخانه','مسئول خرید','کارمند عادی'];
-          roleSel.innerHTML = ''; roles.forEach(r => { const o=document.createElement('option'); o.value=r; o.textContent=r; roleSel.appendChild(o); });
-        }
-        // Render employees list and available add options
-        const users = (typeof USER_DB !== 'undefined' && Array.isArray(USER_DB)) ? USER_DB : [];
-        const addSel = qs('#add-employee-select'); if (addSel){
-          const existing = new Set(((branches.find(b=>b.id===currentBranchId)||{}).employees||[]).map(e => String(e.id)));
-          addSel.innerHTML = '';
-          const optNone = document.createElement('option'); optNone.value=''; optNone.textContent='انتخاب کاربر'; addSel.appendChild(optNone);
-          users.forEach(u => { const id=String(u.phone||u.email||u.name||''); if (!id||existing.has(id)) return; const o=document.createElement('option'); o.value=id; o.textContent=[u.name,u.phone].filter(Boolean).join(' — ')||id; addSel.appendChild(o); });
-        }
-        const tbody = qs('#employees-table-body'); if (tbody){
-          const br = branches.find(b=>b.id===currentBranchId); if (!br) return;
-          tbody.innerHTML = '';
-          const byId = (id) => users.find(u => String(u.phone||u.email||u.name||'') === String(id));
-          (br.employees||[]).forEach(emp => {
-            const u = byId(emp.id) || {}; const label = [u.name, u.phone].filter(Boolean).join(' — ') || emp.id;
-            const roles = ['مدیر شعبه','صندوق دار','مسئول آشپزخانه','مسئول خرید','کارمند عادی'];
-            const roleOptions = roles.map(r => `<option value="${r}"${r===emp.role?' selected':''}>${r}</option>`).join('');
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${label}</td><td><select class="emp-role-select" data-emp-id="${emp.id}">${roleOptions}</select></td><td><button type="button" class="btn danger emp-remove-btn" data-emp-id="${emp.id}">حذف</button></td>`;
-            tbody.appendChild(tr);
-          });
-        }
-      })();
-      renderEmployeesGeneral(branch);
       const sysSec = qs('#branch-tab-systems');
       if (sysSec){
         const bpv = qs('#branch-page-view');
@@ -1187,7 +1119,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const addrEl = qs('#branch-address');
     const p1El = qs('#branch-phone1');
     const p2El = qs('#branch-phone2');
-    if (!nameEl || !addrEl || !p1El || !p2El) return;
+    const empSel = qs('#branch-employees');
+    if (!nameEl || !addrEl || !p1El || !p2El || !empSel) return;
     nameEl.value = branch.name || '';
     addrEl.value = branch.address || '';
     p1El.value = branch.phone1 || '';
@@ -1223,11 +1156,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const addr = (qs('#branch-address')?.value || '').trim();
       const phone1 = (qs('#branch-phone1')?.value || '').trim();
       const phone2 = (qs('#branch-phone2')?.value || '').trim();
+      const empSel = qs('#branch-employees');
+      const employees = empSel ? [...empSel.selectedOptions].map(o => o.value) : [];
       if (name) br.name = name;
       br.address = addr;
       br.phone1 = phone1;
       br.phone2 = phone2;
-      // employees are managed via the dedicated list UI
+      br.employees = employees;
       saveBranches(branches);
       // Update UI parts that show branch name
       if (oldName !== br.name){
@@ -1256,80 +1191,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
         toastTimer = setTimeout(() => { hideUndoToast(); }, 2000);
       }
-    }
-  });
-  // Employees add/remove and role change handlers
-  document.addEventListener('click', (e) => {
-    const t = e.target;
-    if (t && t.id === 'add-employee-btn'){
-      const br = branches.find(b => b.id === currentBranchId); if (!br) return; ensureBranchExtras(br);
-      const uid = (qs('#add-employee-select')?.value || '').trim(); if (!uid) return;
-      const role = (qs('#add-employee-role')?.value || 'کارمند عادی');
-      br.employees = Array.isArray(br.employees) ? br.employees : [];
-      if (!br.employees.some(e => String(e.id) === String(uid))){
-        br.employees.push({ id: String(uid), role: String(role || 'کارمند عادی') });
-        saveBranches(branches);
-        // Re-render employees list
-        const branch = br; // same reference
-        (function(){
-          const users = (typeof USER_DB !== 'undefined' && Array.isArray(USER_DB)) ? USER_DB : [];
-          const addSel = qs('#add-employee-select'); if (addSel){
-            const existing = new Set((branch.employees||[]).map(e => String(e.id)));
-            addSel.innerHTML = '';
-            const optNone = document.createElement('option'); optNone.value=''; optNone.textContent='انتخاب کاربر'; addSel.appendChild(optNone);
-            users.forEach(u => { const id=String(u.phone||u.email||u.name||''); if (!id||existing.has(id)) return; const o=document.createElement('option'); o.value=id; o.textContent=[u.name,u.phone].filter(Boolean).join(' — ')||id; addSel.appendChild(o); });
-          }
-          const tbody = qs('#employees-table-body'); if (tbody){
-            tbody.innerHTML = '';
-            const byId = (id) => users.find(u => String(u.phone||u.email||u.name||'') === String(id));
-            (branch.employees||[]).forEach(emp => {
-              const u = byId(emp.id) || {}; const label = [u.name, u.phone].filter(Boolean).join(' — ') || emp.id;
-              const roles = ['مدیر شعبه','صندوق دار','مسئول آشپزخانه','مسئول خرید','کارمند عادی'];
-              const roleOptions = roles.map(r => `<option value="${r}"${r===emp.role?' selected':''}>${r}</option>`).join('');
-              const tr = document.createElement('tr');
-              tr.innerHTML = `<td>${label}</td><td><select class="emp-role-select" data-emp-id="${emp.id}">${roleOptions}</select></td><td><button type="button" class="btn danger emp-remove-btn" data-emp-id="${emp.id}">حذف</button></td>`;
-              tbody.appendChild(tr);
-            });
-          }
-        })();
-      }
-    }
-    if (t && t.classList && t.classList.contains('emp-remove-btn')){
-      const empId = t.getAttribute('data-emp-id'); if (!empId) return;
-      const br = branches.find(b => b.id === currentBranchId); if (!br) return; ensureBranchExtras(br);
-      const idx = (br.employees||[]).findIndex(e => String(e.id) === String(empId));
-      if (idx >= 0){ br.employees.splice(idx,1); saveBranches(branches); }
-      // Re-render list
-      const click = new Event('click'); // trigger to refresh via IIFE on showBranchPage next? fallback manual render
-      // Fallback manual re-render
-      const users = (typeof USER_DB !== 'undefined' && Array.isArray(USER_DB)) ? USER_DB : [];
-      const tbody = qs('#employees-table-body'); if (tbody){
-        tbody.innerHTML = '';
-        const byId = (id) => users.find(u => String(u.phone||u.email||u.name||'') === String(id));
-        (br.employees||[]).forEach(emp => {
-          const u = byId(emp.id) || {}; const label = [u.name, u.phone].filter(Boolean).join(' — ') || emp.id;
-          const roles = ['مدیر شعبه','صندوق دار','مسئول آشپزخانه','مسئول خرید','کارمند عادی'];
-          const roleOptions = roles.map(r => `<option value="${r}"${r===emp.role?' selected':''}>${r}</option>`).join('');
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${label}</td><td><select class="emp-role-select" data-emp-id="${emp.id}">${roleOptions}</select></td><td><button type="button" class="btn danger emp-remove-btn" data-emp-id="${emp.id}">حذف</button></td>`;
-          tbody.appendChild(tr);
-        });
-      }
-      const addSel = qs('#add-employee-select'); if (addSel){
-        const existing = new Set((br.employees||[]).map(e => String(e.id)));
-        addSel.innerHTML = '';
-        const optNone = document.createElement('option'); optNone.value=''; optNone.textContent='انتخاب کاربر'; addSel.appendChild(optNone);
-        (typeof USER_DB !== 'undefined' && Array.isArray(USER_DB) ? USER_DB : []).forEach(u => { const id=String(u.phone||u.email||u.name||''); if (!id||existing.has(id)) return; const o=document.createElement('option'); o.value=id; o.textContent=[u.name,u.phone].filter(Boolean).join(' — ')||id; addSel.appendChild(o); });
-      }
-    }
-  });
-  document.addEventListener('change', (e) => {
-    const t = e.target;
-    if (t && t.classList && t.classList.contains('emp-role-select')){
-      const empId = t.getAttribute('data-emp-id'); if (!empId) return;
-      const br = branches.find(b => b.id === currentBranchId); if (!br) return; ensureBranchExtras(br);
-      const emp = (br.employees||[]).find(e => String(e.id) === String(empId)); if (!emp) return;
-      emp.role = String(t.value || 'کارمند عادی'); saveBranches(branches);
     }
   });
   document.addEventListener('click', (e) => {
