@@ -1,4 +1,4 @@
-// Branches (تنظیمات شعب)
+﻿// Branches (تنظیمات شعب)
 function qs(sel, root = document) { return root.querySelector(sel); }
 function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
 
@@ -1152,9 +1152,9 @@ document.addEventListener('DOMContentLoaded', () => {
     card.id = 'branch-employees-card';
     card.innerHTML = `
       <div class="table-header">
-        <h3>UcOO�UcU+OU+ O'O1O"U�</h3>
+        <h3>لیست کارمندان شعبه</h3>
         <form id="employee-add-form" class="form" style="grid-auto-flow: column; align-items:center; grid-auto-columns: max-content; gap:8px;">
-          <input id="employee-search" type="search" placeholder="U+OU. OU+O�OrOO" list="employee-suggest" />
+          <input id="employee-search" type="search" placeholder="جستجوی کاربران list="employee-suggest" />
           <datalist id="employee-suggest"></datalist>
           <button type="submit" class="btn primary">OU?O�U^O_U+ UcOO�UcU+OU+</button>
         </form>
@@ -1163,7 +1163,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <table>
           <thead>
             <tr>
-              <th>U+OU.</th>
+              <th>کارمندان</th>
               <th>O'U.OO�U�</th>
               <th>O�U+O,UOU.OO�</th>
             </tr>
@@ -1202,7 +1202,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tr.innerHTML = `<td>${name}</td><td>${phone}</td>`;
       const act = document.createElement('td');
       const del = document.createElement('button');
-      del.type = 'button'; del.className = 'btn danger'; del.textContent = 'O-O�U?';
+      del.type = 'button'; del.className = 'btn danger'; del.textContent = 'حذف کاربر';
       del.setAttribute('data-del-emp', id);
       act.appendChild(del); tr.appendChild(act);
       tbody.appendChild(tr);
