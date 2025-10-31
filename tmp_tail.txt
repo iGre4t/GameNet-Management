@@ -1,0 +1,8 @@
+    (branch.specialItems||[]).forEach(item => {
+      const tr = document.createElement('tr'); const priceText=(Number(item.price)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      tr.innerHTML = `<td>${item.name||''}</td><td class="price-cell" data-type="special" data-id="${item.id}">${priceText}</td>`;
+      const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-special', item.id); act.appendChild(del); tr.appendChild(act);
+      tbody.appendChild(tr);
+    });
+  }
+});

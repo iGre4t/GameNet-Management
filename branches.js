@@ -100,6 +100,14 @@ document.addEventListener('DOMContentLoaded', () => {
           const idx = branches.findIndex(b => b.id === id);
           const br = branches[idx];
           if (idx < 0 || !br) return;
+          // Show clean Persian delete confirmation and bypass garbled text
+          openConfirm(`حذف «${br.name}»؟ این عملیات قابل بازگشت است.`, () => {
+            const removed = branches.splice(idx, 1)[0];
+            saveBranches(branches);
+            renderBranchesTable();
+            showUndoToast({ type: 'branch', payload: removed, index: idx });
+          });
+          return;
           openConfirm(`حذف Ø´Ø¹Ø¨Ù‡ Â«${br.name}Â»ØŸ Ø§ÛŒÙ† Ø¹Ù…Ù„ÛŒØ§Øª Ù‚Ø§Ø¨Ù„ Ø¨Ø§Ø²Ú¯Ø´Øª Ø§Ø³Øª.`, () => {
             const removed = branches.splice(idx, 1)[0];
             saveBranches(branches);
@@ -157,6 +165,17 @@ document.addEventListener('DOMContentLoaded', () => {
         del.addEventListener('click', () => {
           const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
           if (!sys) return;
+          // Show clean Persian delete confirmation and bypass garbled text
+          openConfirm(`حذف «${sys.name}»؟ این عملیات قابل بازگشت است.`, () => {
+            const i = (branch.systems||[]).findIndex(s => s.id === ch.dataset.id);
+            if (i >= 0){
+              const removed = branch.systems.splice(i, 1)[0];
+              saveBranches(branches);
+              renderSystemsTable(branch);
+              showUndoToast({ type: 'system', payload: removed, branchId: branch.id, index: i });
+            }
+          });
+          return;
           openConfirm(`حذف Ø³ÛŒØ³ØªÙ… Â«${sys.name}Â»ØŸ Ø§ÛŒÙ† Ø¹Ù…Ù„ÛŒØ§Øª Ù‚Ø§Ø¨Ù„ Ø¨Ø§Ø²Ú¯Ø´Øª Ø§Ø³Øª.`, () => {
             const i = (branch.systems||[]).findIndex(s => s.id === ch.dataset.id);
             if (i >= 0){
@@ -885,7 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sel = qs('#buffet-item-cat');
     if (sel){
       sel.innerHTML = '';
-      const optNone = document.createElement('option'); optNone.value = ''; optNone.textContent = 'â€” Ø¨Ø¯ÙˆÙ† Ø¯Ø³ØªÙ‡ â€”'; sel.appendChild(optNone);
+      const optNone = document.createElement('option'); optNone.value = ''; optNone.textContent = '-- بدون دسته بندی --'; sel.appendChild(optNone);
       (branch.buffetCategories||[]).forEach(c => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.name; sel.appendChild(o); });
     }
   }
@@ -897,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = document.createElement('tr');
       const priceText = (Number(item.price)||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       const catSel = document.createElement('select'); catSel.setAttribute('data-buffet-item', item.id);
-      const none = document.createElement('option'); none.value=''; none.textContent='â€” Ø¨Ø¯ÙˆÙ† Ø¯Ø³ØªÙ‡ â€”'; catSel.appendChild(none);
+      const none = document.createElement('option'); none.value=''; none.textContent='-- بدون دسته بندی --'; catSel.appendChild(none);
       (branch.buffetCategories||[]).forEach(c => { const o = document.createElement('option'); o.value=c.id; o.textContent=c.name; catSel.appendChild(o); });
       catSel.value = item.categoryId || '';
       tr.innerHTML = `<td>${item.name||''}</td><td class="price-cell" data-type="buffet" data-id="${item.id}">${priceText}</td>`;
