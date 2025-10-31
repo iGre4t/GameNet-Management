@@ -843,6 +843,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     t.addEventListener('animationend', onEnd);
   }
+  // Localized undo toast override for clean Persian text
+  function showUndoToast(info){
+    lastUndo = info;
+    const toast = qs('#undo-toast');
+    if (!toast) return;
+    const name = (info && info.payload && info.payload.name) ? info.payload.name : '';
+    let text = '';
+    if (info.type === 'branch') text = `«${name}» حذف شد.`;
+    else if (info.type === 'system') text = `سیستم «${name}» حذف شد.`;
+    else if (info.type === 'buffet') text = `آیتم بوفه «${name}» حذف شد.`;
+    else if (info.type === 'kitchen') text = `آیتم آشپزخانه «${name}» حذف شد.`;
+    else if (info.type === 'special') text = `خدمات ویژه «${name}» حذف شد.`;
+    else text = `«${name}» حذف شد.`;
+    toast.innerHTML = `${text} <button id="undo-action" class="link" type="button">بازگردانی</button>`;
+    toast.classList.remove('leaving'); toast.classList.remove('hidden');
+    if (toastTimer) { clearTimeout(toastTimer); toastTimer = null; }
+    const btn = qs('#undo-action'); if (btn) btn.onclick = function(e){ if (e && e.stopPropagation) e.stopPropagation(); performUndo(); };
+    toastTimer = setTimeout(function(){ hideUndoToast(); }, 5000);
+  }
   function performUndo(){
     if (!lastUndo) return;
     if (lastUndo.type === 'branch'){
