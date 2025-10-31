@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let branches = loadBranches();
   let currentBranchId = null;
   let currentPeriodId = null;
-  let currentBranchInnerTab = 'systems';
+  let currentBranchInnerTab = 'general';
 
   // Ensure new sections exist on branch object
   function ensureBranchExtras(b){
@@ -21,6 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
     b.kitchenItems = Array.isArray(b.kitchenItems) ? b.kitchenItems : [];
     b.specialItems = Array.isArray(b.specialItems) ? b.specialItems : [];
     b.printerSystemKey = (typeof b.printerSystemKey === 'string') ? b.printerSystemKey : '';
+    // General settings fields
+    b.address = (typeof b.address === 'string') ? b.address : '';
+    b.phone1 = (typeof b.phone1 === 'string') ? b.phone1 : '';
+    b.phone2 = (typeof b.phone2 === 'string') ? b.phone2 : '';
+    b.employees = Array.isArray(b.employees) ? b.employees : [];
     return b;
   }
 
@@ -217,14 +222,17 @@ document.addEventListener('DOMContentLoaded', () => {
     (function(){
       const branch = branches.find(b => b.id === currentBranchId);
       ensureBranchExtras(branch);
+      ensureGeneralTabElements();
+      renderBranchGeneral(branch);
       const sysSec = qs('#branch-tab-systems');
       if (sysSec){
         const bpv = qs('#branch-page-view');
         [...bpv.children].forEach(ch => { if (ch.classList && ch.classList.contains('card')) sysSec.appendChild(ch); });
       }
-      // Show systems tab by default
-      const ids = ['systems','buffet','kitchen','special','tech'];
-      ids.forEach(k => { const sec = qs('#branch-tab-'+k); if (sec) sec.classList.toggle('hidden', k !== 'systems'); });
+      // Show general tab by default
+      const ids = ['general','systems','buffet','kitchen','special','tech'];
+      ids.forEach(k => { const sec = qs('#branch-tab-'+k); if (sec) sec.classList.toggle('hidden', k !== 'general'); });
+      setBranchInnerTab('general');
       renderBuffet(branch);
       renderKitchen(branch);
       renderSpecial(branch);
@@ -985,7 +993,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function setBranchInnerTab(key){
     currentBranchInnerTab = key;
     qsa('#branch-top-tabs .branch-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.branchTab === key));
-    const ids = ['systems','buffet','kitchen','special','tech'];
+    const ids = ['general','systems','buffet','kitchen','special','tech'];
     ids.forEach(k => { const sec = qs('#branch-tab-'+k); if (sec) sec.classList.toggle('hidden', k !== key); });
   }
   const __tabs = qs('#branch-top-tabs');
@@ -1051,6 +1059,117 @@ document.addEventListener('DOMContentLoaded', () => {
       ensureBranchExtras(br);
       br.printerSystemKey = String(t.value || '');
       saveBranches(branches);
+    }
+  });
+  // --- General tab (name, address, phones, employees) ---
+  function ensureGeneralTabElements(){
+    const tabs = qs('#branch-top-tabs');
+    if (tabs && !tabs.querySelector('[data-branch-tab="general"]')){
+      const btn = document.createElement('button');
+      btn.className = 'branch-tab-btn';
+      btn.setAttribute('data-branch-tab','general');
+      btn.textContent = 'تنظیمات عمومی';
+      tabs.insertBefore(btn, tabs.firstChild || null);
+    }
+    let sec = qs('#branch-tab-general');
+    const sysSec = qs('#branch-tab-systems');
+    if (!sec){
+      sec = document.createElement('div');
+      sec.id = 'branch-tab-general';
+      sec.className = 'branch-tab-section';
+      if (sysSec && sysSec.parentNode){ sysSec.parentNode.insertBefore(sec, sysSec); }
+      else { const bpv = qs('#branch-page-view'); bpv && bpv.insertBefore(sec, bpv.firstChild || null); }
+      sec.innerHTML = `
+        <div class="card">
+          <h3>تنظیمات عمومی شعبه</h3>
+          <form id="branch-general-form" class="form grid">
+            <label class="field full">
+              <span>نام شعبه</span>
+              <input id="branch-general-name" type="text" required />
+            </label>
+            <label class="field full">
+              <span>آدرس شعبه</span>
+              <input id="branch-address" type="text" placeholder="نشانی دقیق شعبه" />
+            </label>
+            <label class="field">
+              <span>شماره تماس ۱</span>
+              <input id="branch-phone1" type="text" inputmode="numeric" pattern="^\\d{11}$" placeholder="09xxxxxxxxx" />
+            </label>
+            <label class="field">
+              <span>شماره تماس ۲</span>
+              <input id="branch-phone2" type="text" inputmode="numeric" pattern="^\\d{11}$" placeholder="اختیاری" />
+            </label>
+            <label class="field full">
+              <span>کارکنان شعبه</span>
+              <select id="branch-employees" multiple size="5"></select>
+              <small class="hint">برای انتخاب چند کاربر، کلید Ctrl یا ⌘ را نگه دارید.</small>
+            </label>
+            <div class="field full">
+              <button type="submit" class="btn primary">ذخیره تنظیمات</button>
+            </div>
+            <p id="branch-general-msg" class="hint full"></p>
+          </form>
+        </div>`;
+    }
+  }
+
+  function renderBranchGeneral(branch){
+    ensureBranchExtras(branch);
+    const nameEl = qs('#branch-general-name');
+    const addrEl = qs('#branch-address');
+    const p1El = qs('#branch-phone1');
+    const p2El = qs('#branch-phone2');
+    const empSel = qs('#branch-employees');
+    if (!nameEl || !addrEl || !p1El || !p2El || !empSel) return;
+    nameEl.value = branch.name || '';
+    addrEl.value = branch.address || '';
+    p1El.value = branch.phone1 || '';
+    p2El.value = branch.phone2 || '';
+    // Populate employees from USER_DB if available
+    try {
+      const users = (typeof USER_DB !== 'undefined' && Array.isArray(USER_DB)) ? USER_DB : [];
+      const selected = new Set((branch.employees||[]).map(String));
+      empSel.innerHTML = '';
+      users.forEach(u => {
+        const id = String(u.phone || u.email || u.name || '');
+        if (!id) return;
+        const opt = document.createElement('option');
+        opt.value = id;
+        const label = [u.name, u.phone].filter(Boolean).join(' — ');
+        opt.textContent = label || id;
+        opt.selected = selected.has(id);
+        empSel.appendChild(opt);
+      });
+    } catch {}
+    const msg = qs('#branch-general-msg'); if (msg) msg.textContent='';
+  }
+
+  document.addEventListener('submit', (e) => {
+    const t = e.target;
+    if (t && t.id === 'branch-general-form'){
+      e.preventDefault();
+      const br = branches.find(b => b.id === currentBranchId);
+      if (!br) return;
+      ensureBranchExtras(br);
+      const oldName = br.name;
+      const name = (qs('#branch-general-name')?.value || '').trim();
+      const addr = (qs('#branch-address')?.value || '').trim();
+      const phone1 = (qs('#branch-phone1')?.value || '').trim();
+      const phone2 = (qs('#branch-phone2')?.value || '').trim();
+      const empSel = qs('#branch-employees');
+      const employees = empSel ? [...empSel.selectedOptions].map(o => o.value) : [];
+      if (name) br.name = name;
+      br.address = addr;
+      br.phone1 = phone1;
+      br.phone2 = phone2;
+      br.employees = employees;
+      saveBranches(branches);
+      // Update UI parts that show branch name
+      if (oldName !== br.name){
+        renderBranchSubnav();
+        const tEl = qs('#branch-page-title'); if (tEl) tEl.textContent = `O'O1O"U� ${br.name}`;
+      }
+      const msg = qs('#branch-general-msg'); if (msg){ msg.textContent = 'تنظیمات با موفقیت ذخیره شد.'; setTimeout(()=>{ msg.textContent=''; }, 1500); }
     }
   });
   // Save button for tech settings
