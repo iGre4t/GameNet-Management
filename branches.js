@@ -1113,18 +1113,99 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Ensure employees card exists under General tab
+  function ensureEmployeesCard(){
+    const sec = qs('#branch-tab-general');
+    if (!sec) return;
+    if (qs('#branch-employees-card')) return;
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.id = 'branch-employees-card';
+    card.innerHTML = `
+      <div class="table-header">
+        <h3>UcOO�UcU+OU+ O'O1O"U�</h3>
+        <form id="employee-add-form" class="form" style="grid-auto-flow: column; align-items:center; grid-auto-columns: max-content; gap:8px;">
+          <input id="employee-search" type="search" placeholder="U+OU. OU+O�OrOO" list="employee-suggest" />
+          <datalist id="employee-suggest"></datalist>
+          <button type="submit" class="btn primary">OU?O�U^O_U+ UcOO�UcU+OU+</button>
+        </form>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>U+OU.</th>
+              <th>O'U.OO�U�</th>
+              <th>O�U+O,UOU.OO�</th>
+            </tr>
+          </thead>
+          <tbody id="employees-body"></tbody>
+        </table>
+      </div>`;
+    sec.appendChild(card);
+  }
+
+  // helpers for users datasource and labels
+  function getAllSystemUsers(){
+    try { if (typeof loadUsers === 'function') return loadUsers(); } catch {}
+    try { if (Array.isArray(USER_DB)) return USER_DB; } catch {}
+    return [];
+  }
+  function userLabel(u){
+    const full = [u.first, u.last].filter(Boolean).join(' ').trim();
+    const name = full || u.name || '';
+    const phone = u.phone || '';
+    return [name, phone].filter(Boolean).join(' - ');
+  }
+  function userId(u){ return u.id || u.phone || u.email || u.name || ''; }
+
+  function renderEmployeesTable(branch){
+    const tbody = qs('#employees-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    const all = getAllSystemUsers();
+    const byId = new Map(all.map(u => [String(userId(u)), u]));
+    (branch.employees||[]).map(String).forEach(id => {
+      const u = byId.get(id);
+      const tr = document.createElement('tr');
+      const name = u ? userLabel(u).split(' - ')[0] : id;
+      const phone = u ? (u.phone || '') : '';
+      tr.innerHTML = `<td>${name}</td><td>${phone}</td>`;
+      const act = document.createElement('td');
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'btn danger'; del.textContent = 'O-O�U?';
+      del.setAttribute('data-del-emp', id);
+      act.appendChild(del); tr.appendChild(act);
+      tbody.appendChild(tr);
+    });
+  }
+
   function renderBranchGeneral(branch){
     ensureBranchExtras(branch);
     const nameEl = qs('#branch-general-name');
     const addrEl = qs('#branch-address');
     const p1El = qs('#branch-phone1');
     const p2El = qs('#branch-phone2');
-    const empSel = qs('#branch-employees');
-    if (!nameEl || !addrEl || !p1El || !p2El || !empSel) return;
+    if (!nameEl || !addrEl || !p1El || !p2El) return;
     nameEl.value = branch.name || '';
     addrEl.value = branch.address || '';
     p1El.value = branch.phone1 || '';
     p2El.value = branch.phone2 || '';
+    // Hide old employees selector if present and render new employees UI
+    try { const oldSel = qs('#branch-employees'); const lbl = oldSel && oldSel.closest('label'); if (lbl) lbl.style.display = 'none'; } catch {}
+    ensureEmployeesCard();
+    const dl = qs('#employee-suggest');
+    if (dl){
+      dl.innerHTML = '';
+      const users = getAllSystemUsers();
+      users.forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = userLabel(u);
+        opt.setAttribute('data-id', String(userId(u)));
+        dl.appendChild(opt);
+      });
+    }
+    renderEmployeesTable(branch);
     // Populate employees from USER_DB if available
     try {
       const users = (typeof USER_DB !== 'undefined' && Array.isArray(USER_DB)) ? USER_DB : [];
@@ -1162,7 +1243,7 @@ document.addEventListener('DOMContentLoaded', () => {
       br.address = addr;
       br.phone1 = phone1;
       br.phone2 = phone2;
-      br.employees = employees;
+      // br.employees is managed via the Employees card UI
       saveBranches(branches);
       // Update UI parts that show branch name
       if (oldName !== br.name){
@@ -1170,6 +1251,45 @@ document.addEventListener('DOMContentLoaded', () => {
         const tEl = qs('#branch-page-title'); if (tEl) tEl.textContent = `O'O1O"U� ${br.name}`;
       }
       const msg = qs('#branch-general-msg'); if (msg){ msg.textContent = 'تنظیمات با موفقیت ذخیره شد.'; setTimeout(()=>{ msg.textContent=''; }, 1500); }
+    }
+  });
+  // Add employee via search form
+  document.addEventListener('submit', (e) => {
+    const t = e.target;
+    if (t && t.id === 'employee-add-form'){
+      e.preventDefault();
+      const br = branches.find(b => b.id === currentBranchId);
+      if (!br) return; ensureBranchExtras(br);
+      const input = qs('#employee-search');
+      const val = (input?.value || '').trim(); if (!val) return;
+      const users = getAllSystemUsers();
+      let sel = users.find(u => userLabel(u) === val);
+      if (!sel){ sel = users.find(u => (u.phone || '') && val.includes(u.phone)); }
+      if (!sel) return;
+      const id = String(userId(sel));
+      br.employees = Array.isArray(br.employees) ? br.employees : [];
+      if (!br.employees.map(String).includes(id)){
+        br.employees.push(id);
+        saveBranches(branches);
+        renderEmployeesTable(br);
+      }
+      if (input) input.value = '';
+    }
+  });
+  // Remove employee from list
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (t && t.matches('button[data-del-emp]')){
+      const id = t.getAttribute('data-del-emp');
+      const br = branches.find(b => b.id === currentBranchId);
+      if (!br) return; ensureBranchExtras(br);
+      const i = (br.employees||[]).map(String).indexOf(String(id));
+      if (i >= 0){
+        const removed = br.employees.splice(i,1)[0];
+        saveBranches(branches);
+        renderEmployeesTable(br);
+        try { showUndoToast({ type: 'employee', payload: removed, branchId: br.id, index: i }); } catch {}
+      }
     }
   });
   // Save button for tech settings
