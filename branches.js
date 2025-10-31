@@ -1172,6 +1172,32 @@ document.addEventListener('DOMContentLoaded', () => {
         </table>
       </div>`;
     sec.appendChild(card);
+    // Visual spacing and header/controls adjustments
+    try {
+      card.style.marginTop = '16px';
+      const titleEl = card.querySelector('h3');
+      if (titleEl) titleEl.textContent = 'لیست کارمندان شعبه';
+      const header = card.querySelector('.table-header');
+      const oldForm = card.querySelector('#employee-add-form');
+      if (oldForm && header){
+        const wrapper = document.createElement('div');
+        wrapper.className = 'form';
+        wrapper.style.cssText = 'grid-auto-flow: column; align-items:center; grid-auto-columns: max-content; gap:8px;';
+        const openBtn = document.createElement('button');
+        openBtn.type = 'button'; openBtn.id = 'open-employee-search'; openBtn.className = 'btn'; openBtn.textContent = 'جستجوی کاربران';
+        wrapper.appendChild(openBtn);
+        header.replaceChild(wrapper, oldForm);
+      }
+      const ths = card.querySelectorAll('thead th');
+      if (ths && ths.length >= 3){
+        ths[0].textContent = 'نام و نام خانوادگی';
+        ths[1].textContent = 'شماره همراه';
+        ths[2].textContent = 'عملیات ها';
+      }
+      // ensure modal and open handler
+      try { ensureEmployeeSearchModal(); } catch {}
+      card.querySelector('#open-employee-search')?.addEventListener('click', () => document.getElementById('employee-search-modal')?.classList.remove('hidden'));
+    } catch {}
   }
 
   // helpers for users datasource and labels
@@ -1201,6 +1227,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const phone = u ? (u.phone || '') : '';
       tr.innerHTML = `<td>${name}</td><td>${phone}</td>`;
       const act = document.createElement('td');
+      // add roles button before delete
+      const rolesBtn = document.createElement('button');
+      rolesBtn.type = 'button'; rolesBtn.className = 'btn'; rolesBtn.textContent = 'نقش ها';
+      rolesBtn.setAttribute('data-roles-emp', id);
+      act.appendChild(rolesBtn);
       const del = document.createElement('button');
       del.type = 'button'; del.className = 'btn danger'; del.textContent = 'حذف کاربر';
       del.setAttribute('data-del-emp', id);
@@ -1320,6 +1351,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try { showUndoToast({ type: 'employee', payload: removed, branchId: br.id, index: i }); } catch {}
       }
     }
+    if (t && t.matches('button[data-roles-emp]')){
+      const id = t.getAttribute('data-roles-emp');
+      if (!id) return;
+      openEmployeeRolesModal(id);
+    }
   });
   // Save button for tech settings
   document.addEventListener('click', (e) => {
@@ -1428,5 +1464,97 @@ document.addEventListener('DOMContentLoaded', () => {
       const act = document.createElement('td'); const del=document.createElement('button'); del.type='button'; del.className='btn danger'; del.textContent='حذف'; del.setAttribute('data-del-special', item.id); act.appendChild(del); tr.appendChild(act);
       tbody.appendChild(tr);
     });
+  }
+
+  // --- Employee search modal ---
+  function ensureEmployeeSearchModal(){
+    if (qs('#employee-search-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'employee-search-modal';
+    modal.className = 'modal hidden';
+    modal.setAttribute('role','dialog');
+    modal.setAttribute('aria-modal','true');
+    modal.innerHTML = `
+      <div class="modal-card">
+        <h3>جستجوی کاربران</h3>
+        <form id="employee-add-form" class="form">
+          <label class="field full">
+            <span>نام یا شماره همراه</span>
+            <input id="employee-search" type="search" placeholder="جستجوی کاربران" list="employee-suggest" />
+            <datalist id="employee-suggest"></datalist>
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="btn" id="employee-search-cancel">انصراف</button>
+            <button type="submit" class="btn primary">افزودن به کارمندان شعبه</button>
+          </div>
+        </form>
+      </div>`;
+    document.body.appendChild(modal);
+    qs('#employee-search-cancel')?.addEventListener('click', () => qs('#employee-search-modal')?.classList.add('hidden'));
+  }
+
+  // --- Employee Roles modal ---
+  const BRANCH_ROLE_OPTIONS = [
+    'مدیر شعبه',
+    'صندوق دار',
+    'مسئول آشپزخانه',
+    'مسئول خرید',
+    'کارمند عادی'
+  ];
+  let CURRENT_ROLE_EMP = null;
+  function ensureEmployeeRolesModal(){
+    if (qs('#employee-roles-modal')) return;
+    const modal = document.createElement('div');
+    modal.id = 'employee-roles-modal';
+    modal.className = 'modal hidden';
+    modal.setAttribute('role','dialog');
+    modal.setAttribute('aria-modal','true');
+    modal.innerHTML = `
+      <div class="modal-card">
+        <h3>نقش های کارمند</h3>
+        <div class="form">
+          <label class="field full">
+            <span>انتخاب نقش ها</span>
+            <select id="employee-roles-select" multiple size="5"></select>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="employee-roles-cancel">انصراف</button>
+          <button type="button" class="btn primary" id="employee-roles-save">ذخیره</button>
+        </div>
+        <p id="employee-roles-msg" class="hint"></p>
+      </div>`;
+    document.body.appendChild(modal);
+    const sel = modal.querySelector('#employee-roles-select');
+    if (sel){ BRANCH_ROLE_OPTIONS.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o); }); }
+    qs('#employee-roles-cancel')?.addEventListener('click', () => qs('#employee-roles-modal')?.classList.add('hidden'));
+    qs('#employee-roles-save')?.addEventListener('click', saveEmployeeRolesFromModal);
+  }
+
+  function openEmployeeRolesModal(empId){
+    ensureEmployeeRolesModal();
+    CURRENT_ROLE_EMP = String(empId);
+    const br = branches.find(b => b.id === currentBranchId);
+    if (!br) return;
+    ensureBranchExtras(br);
+    br.employeeRoles = (br.employeeRoles && typeof br.employeeRoles === 'object') ? br.employeeRoles : {};
+    const selected = new Set(Array.isArray(br.employeeRoles[CURRENT_ROLE_EMP]) ? br.employeeRoles[CURRENT_ROLE_EMP].map(String) : []);
+    const sel = qs('#employee-roles-select');
+    if (sel){ [...sel.options].forEach(o => { o.selected = selected.has(o.value); }); }
+    qs('#employee-roles-modal')?.classList.remove('hidden');
+  }
+
+  function saveEmployeeRolesFromModal(){
+    if (!CURRENT_ROLE_EMP) return;
+    const br = branches.find(b => b.id === currentBranchId);
+    if (!br) return;
+    ensureBranchExtras(br);
+    br.employeeRoles = (br.employeeRoles && typeof br.employeeRoles === 'object') ? br.employeeRoles : {};
+    const sel = qs('#employee-roles-select');
+    const roles = sel ? [...sel.options].filter(o => o.selected).map(o => o.value) : [];
+    br.employeeRoles[CURRENT_ROLE_EMP] = roles;
+    saveBranches(branches);
+    qs('#employee-roles-modal')?.classList.add('hidden');
+    const msg = qs('#employee-roles-msg'); if (msg){ msg.textContent = 'ذخیره شد'; setTimeout(() => { msg.textContent=''; }, 1200); }
   }
 });
