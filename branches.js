@@ -145,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectAll && (selectAll.onchange = () => setAll(selectAll.checked));
 
     qsa('#systems-body button[data-sys]').forEach(btn => {
+      btn.textContent = 'ویرایش';
       btn.addEventListener('click', () => openSystemModal(branch.id, btn.getAttribute('data-sys')));
     });
     // Update status cells and add delete buttons using current period
@@ -166,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         del.className = 'btn danger';
         del.textContent = 'حذف';
         del.setAttribute('data-del-sys', ch.dataset.id);
+        del.textContent = 'حذف';
         del.setAttribute('data-index', String(idx));
         del.addEventListener('click', () => {
           const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
@@ -194,6 +196,19 @@ document.addEventListener('DOMContentLoaded', () => {
         actionTd.appendChild(del);
       }
     });
+    // Localize status text after render
+    try {
+      const pid = currentPeriodId || (ensureBranchPeriods(branch).periods[0]?.id);
+      qsa('#systems-body .row-select').forEach(ch => {
+        const tr = ch.closest('tr'); if (!tr) return;
+        const statusTd = tr.querySelectorAll('td')[2];
+        const sys = (branch.systems||[]).find(s => s.id === ch.dataset.id);
+        if (statusTd && sys){
+          const hasOverride = !!(sys.pricesByPeriod && sys.pricesByPeriod[pid]);
+          statusTd.textContent = hasOverride ? 'قیمت سفارشی' : 'بدون سفارشی‌سازی';
+        }
+      });
+    } catch {}
   };
 
   const showManageView = () => {
@@ -251,6 +266,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (keyInput) keyInput.value = branch.printerSystemKey || '';
       // update currency unit labels for default prices
       try { setDefaultPricesCurrencyLabels && setDefaultPricesCurrencyLabels(); } catch {}
+      // Localize UI texts for Persian
+      try {
+        const tbs = qs('#branch-top-tabs');
+        if (tbs){
+          const b1 = tbs.querySelector('[data-branch-tab="systems"]'); if (b1) b1.textContent = 'سیستم‌ها';
+          const b2 = tbs.querySelector('[data-branch-tab="buffet"]'); if (b2) b2.textContent = 'بوفه';
+          const b3 = tbs.querySelector('[data-branch-tab="kitchen"]'); if (b3) b3.textContent = 'آشپزخانه';
+          const b4 = tbs.querySelector('[data-branch-tab="special"]'); if (b4) b4.textContent = 'آیتم‌های خاص';
+        }
+        const sysName = qs('#system-name-input'); if (sysName) sysName.setAttribute('placeholder','نام سیستم');
+        const addBtn = qs('#add-system-form button[type="submit"]'); if (addBtn) addBtn.textContent = 'افزودن سیستم';
+        const headThs = qsa('#branch-page-view thead th');
+        if (headThs && headThs.length >= 4){ headThs[1].textContent = 'نام سیستم'; headThs[2].textContent = 'وضعیت قیمت'; headThs[3].textContent = 'عملیات'; }
+      } catch {}
     })();
   };
 
