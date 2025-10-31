@@ -1,4 +1,4 @@
-// Branches (ØªÙ†Ø¸ÛŒÙ…Ø§Øª Ø´Ø¹Ø¨)
+// Branches (تنظیمات شعب)
 function qs(sel, root = document) { return root.querySelector(sel); }
 function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
 
@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const p = qs('#branch-page-view');
     if (m && p) { m.classList.add('hidden'); p.classList.remove('hidden'); }
     const t = qs('#branch-page-title');
-    if (t) t.textContent = `Ø´Ø¹Ø¨Ù‡: ${branch.name}`;
+    if (t) t.textContent = `شعبه ${branch.name}`;
     renderPeriodSelect(branch);
     fillDefaultPricesForm(branch);
     renderSystemsTable(branch);
@@ -284,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
     qs('#price-4p').value = formatPrice(eff.p4);
     qs('#price-birthday').value = formatPrice(eff.birthday);
     qs('#price-film').value = formatPrice(eff.film);
-    // adjust modal currency labels to ØªÙˆÙ…Ø§Ù†
+    // adjust modal currency labels to مازاد تومان
     try { setSystemModalCurrencyLabels && setSystemModalCurrencyLabels(); } catch {}
     form.dataset.branchId = branchId;
     form.dataset.systemId = systemId;
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize on switching to branches tab
   qsa('.nav-item').forEach(btn => btn.addEventListener('click', () => {
     if (btn.dataset.tab === 'branches') {
-      setTimeout(() => setTitle('ØªÙ†Ø¸ÛŒÙ…Ø§Øª Ø´Ø¹Ø¨'), 0);
+      setTimeout(() => setTitle('تنظیمات شعب'), 0);
       renderBranchSubnav();
       showManageView();
     }
@@ -348,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const formatPrice = (n) => (Number.isFinite(n) ? n : 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   const parsePrice = (s) => { const n = parseInt(String(s||'').replace(/,/g,''), 10); return isNaN(n) ? 0 : n; };
   const pricesEqual = (a,b) => ['p1','p2','p3','p4','birthday','film'].every(k => Number(a[k]||0) === Number(b[k]||0));
-  // Currency label helpers: switch Ø±ÛŒØ§Ù„ to ØªÙˆÙ…Ø§Ù†
+  // Currency label helpers: switch Ø±ÛŒØ§Ù„ to مازاد تومان
   function setLabelCurrencyByInputId(id, unit){
     const input = qs('#'+id);
     if (!input) return;
@@ -359,20 +359,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   function setDefaultPricesCurrencyLabels(){
-    setLabelCurrencyByInputId('def-1p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
-    setLabelCurrencyByInputId('def-2p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
-    setLabelCurrencyByInputId('def-3p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
-    setLabelCurrencyByInputId('def-4p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
-    setLabelCurrencyByInputId('def-birthday','ØªÙˆÙ…Ø§Ù†');
-    setLabelCurrencyByInputId('def-film','ØªÙˆÙ…Ø§Ù†');
+    setLabelCurrencyByInputId('def-1p','تومان / ساعت');
+    setLabelCurrencyByInputId('def-2p','تومان / ساعت');
+    setLabelCurrencyByInputId('def-3p','تومان / ساعت');
+    setLabelCurrencyByInputId('def-4p','تومان / ساعت');
+    setLabelCurrencyByInputId('def-birthday','مازاد تومان');
+    setLabelCurrencyByInputId('def-film','مازاد تومان');
   }
   function setSystemModalCurrencyLabels(){
-    setLabelCurrencyByInputId('price-1p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
-    setLabelCurrencyByInputId('price-2p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
-    setLabelCurrencyByInputId('price-3p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
-    setLabelCurrencyByInputId('price-4p','ØªÙˆÙ…Ø§Ù†/Ø³Ø§Ø¹Øª');
-    setLabelCurrencyByInputId('price-birthday','ØªÙˆÙ…Ø§Ù†');
-    setLabelCurrencyByInputId('price-film','ØªÙˆÙ…Ø§Ù†');
+    setLabelCurrencyByInputId('price-1p','تومان / ساعت');
+    setLabelCurrencyByInputId('price-2p','تومان / ساعت');
+    setLabelCurrencyByInputId('price-3p','تومان / ساعت');
+    setLabelCurrencyByInputId('price-4p','تومان / ساعت');
+    setLabelCurrencyByInputId('price-birthday','مازاد تومان');
+    setLabelCurrencyByInputId('price-film','مازاد تومان');
   }
   const getEffectivePrices = (branch, sys, periodId) => {
     ensureBranchPeriods(branch);
