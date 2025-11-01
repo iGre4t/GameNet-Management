@@ -1175,14 +1175,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Visual spacing and header/controls adjustments
     try {
       card.style.marginTop = '16px';
-      // Fix column headers: phone number and actions
-      try {
-        const ths = card.querySelectorAll('thead th');
-        if (ths && ths.length >= 3) {
-          ths[1].textContent = 'شماره تلفن';
-          ths[2].textContent = 'عملیات';
-        }
-      } catch {}
       const titleEl = card.querySelector('h3');
       if (titleEl) titleEl.textContent = 'لیست کارمندان شعبه';
       const header = card.querySelector('.table-header');
@@ -1523,7 +1515,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="form">
           <label class="field full">
             <span>انتخاب نقش ها</span>
-            <div id="employee-roles-chips" class="chip-group"></div>
+            <select id="employee-roles-select" multiple size="5"></select>
           </label>
         </div>
         <div class="modal-actions">
@@ -1533,18 +1525,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <p id="employee-roles-msg" class="hint"></p>
       </div>`;
     document.body.appendChild(modal);
-    const wrap = modal.querySelector('#employee-roles-chips');
-    if (wrap){
-      BRANCH_ROLE_OPTIONS.forEach(r => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'chip';
-        chip.setAttribute('data-role', r);
-        chip.textContent = r;
-        chip.addEventListener('click', () => chip.classList.toggle('selected'));
-        wrap.appendChild(chip);
-      });
-    }
+    const sel = modal.querySelector('#employee-roles-select');
+    if (sel){ BRANCH_ROLE_OPTIONS.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o); }); }
     qs('#employee-roles-cancel')?.addEventListener('click', () => qs('#employee-roles-modal')?.classList.add('hidden'));
     qs('#employee-roles-save')?.addEventListener('click', saveEmployeeRolesFromModal);
   }
@@ -1557,10 +1539,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureBranchExtras(br);
     br.employeeRoles = (br.employeeRoles && typeof br.employeeRoles === 'object') ? br.employeeRoles : {};
     const selected = new Set(Array.isArray(br.employeeRoles[CURRENT_ROLE_EMP]) ? br.employeeRoles[CURRENT_ROLE_EMP].map(String) : []);
-    qsa('#employee-roles-chips .chip').forEach(ch => {
-      const key = ch.getAttribute('data-role') || '';
-      ch.classList.toggle('selected', selected.has(key));
-    });
+    const sel = qs('#employee-roles-select');
+    if (sel){ [...sel.options].forEach(o => { o.selected = selected.has(o.value); }); }
     qs('#employee-roles-modal')?.classList.remove('hidden');
   }
 
@@ -1570,7 +1550,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!br) return;
     ensureBranchExtras(br);
     br.employeeRoles = (br.employeeRoles && typeof br.employeeRoles === 'object') ? br.employeeRoles : {};
-    const roles = qsa('#employee-roles-chips .chip.selected').map(ch => ch.getAttribute('data-role')).filter(Boolean);
+    const sel = qs('#employee-roles-select');
+    const roles = sel ? [...sel.options].filter(o => o.selected).map(o => o.value) : [];
     br.employeeRoles[CURRENT_ROLE_EMP] = roles;
     saveBranches(branches);
     qs('#employee-roles-modal')?.classList.add('hidden');
