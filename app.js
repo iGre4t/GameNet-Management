@@ -289,7 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     #ann-manage-list .ann-row .grow{flex:1;min-width:0}
     #ann-manage-list .ann-row .title{font-weight:600}
     #ann-manage-list .ann-row .meta{color:var(--muted);font-size:12px}
-    #ann-manage-list .actions{display:flex;gap:6px}
+    #ann-manage-list .actions, #ann-manage-body .actions{display:flex;gap:6px}
     `;
     document.head.appendChild(s);
   }
@@ -485,6 +485,23 @@ document.addEventListener('DOMContentLoaded', () => {
         manage.id = 'ann-manage';
         manage.innerHTML = '<h4>اعلانیه‌های ارسال‌شده</h4><div id="ann-manage-list"></div>';
         card.appendChild(manage);
+        // Replace simple list container with table layout for consistency
+        if (!document.getElementById('ann-manage-body')){
+          manage.innerHTML = `
+            <h4>??????????? ?????????</h4>
+            <div class=\"table-wrapper\"> 
+              <table>
+                <thead>
+                  <tr>
+                    <th>?????</th>
+                    <th>????? ????:</th>
+                    <th>???????</th>
+                  </tr>
+                </thead>
+                <tbody id=\"ann-manage-body\"></tbody>
+              </table>
+            </div>`;
+        }
       }
 
       // wire handlers
@@ -566,6 +583,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const titles = { home: 'خانه', users: 'کاربران', branches: 'شعب', settings: 'تنظیمات', announce: 'ارسال اعلانیه' };
     const el = qs('#page-title'); if (el) el.textContent = titles[tab] || '';
   };
+
+  // Re-implement manage list rendering using table to match other lists
+  function renderAnnouncementsManage(){
+    const tbody = document.getElementById('ann-manage-body');
+    if (!tbody) return;
+    const list = loadAnnouncements().slice().sort((a,b)=>b.ts-a.ts);
+    tbody.innerHTML = '';
+    if (!list.length){
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 3; td.className = 'ann-empty';
+      td.textContent = '????? ?????????? ??? ???? ???.';
+      tr.appendChild(td); tbody.appendChild(tr); return;
+    }
+    list.forEach(a => {
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-id', a.id);
+
+      const tdTitle = document.createElement('td');
+      const ic = document.createElement('i'); ic.className = `${a.icon||'ri-megaphone-line'} icon`; ic.style.marginInlineStart = '6px';
+      const span = document.createElement('span'); span.textContent = a.title || '';
+      tdTitle.appendChild(ic); tdTitle.appendChild(span);
+      tr.appendChild(tdTitle);
+
+      const tdBy = document.createElement('td');
+      tdBy.textContent = a.byName || '';
+      tr.appendChild(tdBy);
+
+      const tdAct = document.createElement('td');
+      const actions = document.createElement('div'); actions.className = 'actions';
+      const be = document.createElement('button'); be.className = 'btn'; be.textContent = '??????'; be.addEventListener('click', () => beginEditAnnouncement(a.id));
+      const bd = document.createElement('button'); bd.className = 'btn danger'; bd.textContent = '???'; bd.addEventListener('click', () => deleteAnnouncement(a.id));
+      actions.appendChild(be); actions.appendChild(bd);
+      tdAct.appendChild(actions); tr.appendChild(tdAct);
+
+      tbody.appendChild(tr);
+    });
+  }
 
   // Expose for other blocks
   window.renderAnnouncementsHome = renderAnnouncementsHome;
