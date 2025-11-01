@@ -720,6 +720,23 @@ function ensureUserAndPermModals(){
         } else {
           form.appendChild(grid);
         }
+        // Override role options and remove schedule tools
+        try {
+          const roleSelect = qs('#user-type');
+          if (roleSelect) {
+            roleSelect.innerHTML = [
+              '<option value="developer">توسعه دهنده</option>',
+              '<option value="superadmin">مدیرکل</option>',
+              '<option value="deputy">معاون</option>',
+              '<option value="logistics">مدیر لجستیک</option>',
+              '<option value="shareholder">سهام دار</option>',
+              '<option value="accountant">حساب دار</option>',
+              '<option value="technician">تعمیرکار</option>',
+              '<option value="employee" selected>کارمند</option>'
+            ].join('');
+          }
+          const opTools = qs('#operator-tools'); if (opTools) opTools.remove();
+        } catch {}
         qs('#user-type')?.addEventListener('change', (e) => {
           const tools = qs('#operator-tools');
           if (tools) tools.style.display = (e.target.value === 'operator') ? 'block' : 'none';
@@ -773,12 +790,12 @@ function openUserModalX(id){
     const u = users.find(x => x.id === id); if (!u) return;
     f.value = u.first || ''; l.value = u.last || ''; p.value = u.phone || '';
     c.value = u.code || ''; pw.value = '';
-    if (typeSel) typeSel.value = u.type || 'operator';
+    if (typeSel) typeSel.value = u.type || 'employee';
     if (tools) tools.style.display = ((u.type||'operator') === 'operator') ? 'block' : 'none';
   } else {
     f.value = ''; l.value = ''; p.value = '';
     c.value = genCode(users); pw.value = '';
-    if (typeSel) typeSel.value = 'operator';
+    if (typeSel) typeSel.value = 'employee';
     if (tools) tools.style.display = 'block';
   }
   qs('#user-modal')?.classList.remove('hidden');
@@ -791,7 +808,7 @@ function onUserFormSubmitX(e){
   const phone = qs('#user-phone').value.trim();
   const code = qs('#user-code').value.trim();
   const pass = qs('#user-pass').value;
-  const type = (qs('#user-type')?.value) || 'operator';
+  const type = (qs('#user-type')?.value) || 'employee';
   const msg = qs('#user-form-msg');
   if (!first || !last){ msg && (msg.textContent = 'نام و نام خانوادگی الزامی است.'); return; }
   if (!/^\d{11}$/.test(phone)){ msg && (msg.textContent = 'شماره تلفن باید ۱۱ رقم باشد.'); return; }
@@ -801,8 +818,7 @@ function onUserFormSubmitX(e){
     const i = users.findIndex(u => u.id === CURRENT_EDIT_USER); if (i === -1) return;
     const old = users[i]; users[i] = { ...old, first, last, phone, type, password: pass ? pass : old.password };
   } else {
-    const schedule = (type === 'operator') ? defaultWeeklySchedule(2) : null;
-    users.push({ id: genId(), code, first, last, phone, password: pass || '', active: true, email: '', type, schedule, permissions: { tabs: {}, parts: {} } });
+    users.push({ id: genId(), code, first, last, phone, password: pass || '', active: true, email: '', type, permissions: { tabs: {}, parts: {} } });
   }
   saveUsers(users); renderUsers(); updateKpis();
   qs('#user-modal')?.classList.add('hidden');
@@ -863,6 +879,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const addBtn = qs('#add-user'); addBtn && addBtn.addEventListener('click', () => openUserModalX());
   // Initial render with extended schema
   try { renderUsers(); updateKpis(); renderUserPill(); } catch {}
+  // Remove any leftover permissions buttons in users table
+  try {
+    const cleanupPermButtons = () => qsa('.btn[data-act="perm"]').forEach(b => b.remove());
+    cleanupPermButtons();
+    const usersBody = qs('#users-body');
+    if (usersBody) {
+      const mo = new MutationObserver(() => cleanupPermButtons());
+      mo.observe(usersBody, { childList: true, subtree: true });
+    }
+  } catch {}
 });
 
 
@@ -1130,10 +1156,11 @@ function archiveAndRemoveUser(id){
       const tr = document.createElement('tr');
       const full = `${u.first || ''} ${u.last || ''}`.trim();
       const status = u.active ? 'فعال' : 'غیرفعال';
-      const role = u.type === 'manager' ? 'کاربر مدیر' : 'متصدی';
+      const roleMap = { developer:'توسعه دهنده', superadmin:'مدیرکل', deputy:'معاون', logistics:'مدیر لجستیک', shareholder:'سهام دار', accountant:'حساب دار', technician:'تعمیرکار', employee:'کارمند', manager:'مدیرکل', operator:'کارمند' };
+      const role = roleMap[u.type] || 'کارمند';
       tr.innerHTML = `<td>${u.code || ''}</td><td>${full}</td><td>${u.phone || ''}</td><td>${role}</td><td>${status}</td><td>
         <button class="btn" data-act="edit" data-id="${u.id}">ویرایش</button>
-        <button class="btn" data-act="perm" data-id="${u.id}">دسترسی‌ها</button>
+        
         <button class="btn danger" data-act="del" data-id="${u.id}">حذف</button>
       </td>`;
       tbody.appendChild(tr);
