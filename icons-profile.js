@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         icon.setAttribute('aria-hidden', 'true');
         const label = document.createElement('span');
         label.className = 'label';
-        label.textContent = 'OrO�U^O�';
+        label.textContent = 'خروج از سیستم';
         btn.appendChild(icon);
         btn.appendChild(label);
         try { btn.title = label.textContent; } catch {}
