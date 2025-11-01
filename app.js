@@ -220,19 +220,21 @@ document.addEventListener('DOMContentLoaded', () => {
   function sanitizeHtml(input){
     // allow basic formatting only
     const allowed = new Set(['P','BR','STRONG','B','EM','I','U','UL','OL','LI','DIV','SPAN']);
-    const tmp = document.createElement('div'); tmp.innerHTML = input || '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = input || '';
     (function walk(node){
-      const kids = [...node.childNodes];
+      const kids = Array.from(node.childNodes);
       for (const n of kids){
         if (n.nodeType === 1){ // element
           if (!allowed.has(n.tagName)){
-            // replace disallowed element with its text content
-            const text = document.createTextNode(n.textContent || '');
-            n.replaceWith(text);
+            // unwrap disallowed element but keep its children markup
+            const frag = document.createDocumentFragment();
+            while (n.firstChild) frag.appendChild(n.firstChild);
+            n.replaceWith(frag);
             continue;
           }
-          // strip attributes
-          [...n.attributes].forEach(a => n.removeAttribute(a.name));
+          // strip all attributes (styles, classes, colors, sizes, etc.)
+          Array.from(n.attributes).forEach(a => n.removeAttribute(a.name));
           walk(n);
         }
       }
@@ -342,6 +344,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ev.ctrlKey && (ev.key === 'b' || ev.key === 'B')) { ev.preventDefault(); try { document.execCommand('bold'); } catch {} }
         if (ev.ctrlKey && !ev.shiftKey && (ev.key === 'l' || ev.key === 'L')) { ev.preventDefault(); try { document.execCommand('insertUnorderedList'); } catch {} }
         if (ev.ctrlKey && ev.shiftKey && (ev.key === 'l' || ev.key === 'L')) { ev.preventDefault(); try { document.execCommand('insertOrderedList'); } catch {} }
+      });
+      // Paste sanitizer: keep only basic formatting (no size/color)
+      editor && editor.addEventListener('paste', (e) => {
+        try {
+          const cd = e.clipboardData || window.clipboardData;
+          if (!cd) return;
+          const html = cd.getData('text/html');
+          if (html){
+            e.preventDefault();
+            const clean = sanitizeHtml(html);
+            document.execCommand('insertHTML', false, clean);
+          } else {
+            const text = cd.getData('text/plain');
+            if (text){ e.preventDefault(); document.execCommand('insertText', false, text); }
+          }
+        } catch {}
       });
       const form = sec.querySelector('#ann-form');
       form && form.addEventListener('submit', (e) => {
