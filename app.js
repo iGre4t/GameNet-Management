@@ -221,6 +221,19 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault(); if (e.stopPropagation) e.stopPropagation();
         performAnnUndo();
       }
+      // Normalize Persian texts for this section
+      try {
+        const submitBtnFix = sec.querySelector('#ann-submit') || sec.querySelector('.modal-actions button[type="submit"]');
+        if (submitBtnFix) submitBtnFix.textContent = '\u0627\u0631\u0633\u0627\u0644';
+        const cancelFix = sec.querySelector('#ann-cancel');
+        if (cancelFix) cancelFix.textContent = '\u0644\u063A\u0648';
+        const h4 = sec.querySelector('#ann-manage h4');
+        if (h4) h4.textContent = '\u0627\u0639\u0644\u0627\u0646\u06CC\u0647\u200C\u0647\u0627\u06CC \u0627\u0631\u0633\u0627\u0644\u200C\u0634\u062F\u0647';
+        const ths = sec.querySelectorAll('#ann-manage thead th');
+        if (ths[0]) ths[0].textContent = '\u0639\u0646\u0648\u0627\u0646';
+        if (ths[1]) ths[1].textContent = '\u0627\u0631\u0633\u0627\u0644 \u062A\u0648\u0633\u0637';
+        if (ths[2]) ths[2].textContent = '\u0639\u0645\u0644\u06CC\u0627\u062A';
+      } catch {}
     });
   }
 
@@ -334,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = 'card';
       card.id = 'home-announcements-card';
       card.innerHTML = '<h3>اعلانیه‌ها</h3><div id="home-announcements" class="ann-list"></div>';
+      card.innerHTML = '<h3>اعلانیه‌ها</h3><div id=\"home-announcements\" class=\"ann-list\"></div>';
       home.appendChild(card);
     }
   }
@@ -379,6 +393,29 @@ document.addEventListener('DOMContentLoaded', () => {
       const bd = document.createElement('button'); bd.className = 'btn danger'; bd.textContent = 'حذف'; bd.addEventListener('click', () => deleteAnnouncement(a.id));
       actions.appendChild(be); actions.appendChild(bd); row.appendChild(actions);
       listWrap.appendChild(row);
+    });
+  }
+
+  // Re-implement home announcements card renderer with correct Farsi texts
+  function renderAnnouncementsHome(){
+    ensureHomeAnnouncementsCard();
+    const wrap = document.getElementById('home-announcements');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const list = loadAnnouncements().slice().sort((a,b)=>b.ts-a.ts);
+    if (!list.length){
+      wrap.innerHTML = '<p class="ann-empty">فعلاً اعلانیه‌ای ثبت نشده است.</p>';
+      return;
+    }
+    list.forEach(a => {
+      const item = document.createElement('div'); item.className = 'ann-item';
+      const head = document.createElement('div'); head.className = 'ann-head';
+      head.innerHTML = `<i class="${a.icon||'ri-megaphone-line'} icon" aria-hidden="true"></i><div class="title">${a.title||''}</div>`;
+      const body = document.createElement('div'); body.className = 'ann-body'; body.innerHTML = a.html || '';
+      const meta = document.createElement('div'); meta.className = 'ann-meta';
+      const sender = a.byName || '';
+      meta.textContent = sender ? `ارسال توسط: ${sender}` : '';
+      item.appendChild(head); item.appendChild(body); if (sender) item.appendChild(meta); wrap.appendChild(item);
     });
   }
 
@@ -488,14 +525,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Replace simple list container with table layout for consistency
         if (!document.getElementById('ann-manage-body')){
           manage.innerHTML = `
-            <h4>??????????? ?????????</h4>
+            <h4>اعلانیه‌های ارسال‌شده</h4>
             <div class=\"table-wrapper\"> 
               <table>
                 <thead>
                   <tr>
-                    <th>?????</th>
-                    <th>????? ????:</th>
-                    <th>???????</th>
+                    <th>عنوان</th>
+                    <th>ارسال توسط</th>
+                    <th>عملیات</th>
                   </tr>
                 </thead>
                 <tbody id=\"ann-manage-body\"></tbody>
@@ -594,7 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
       td.colSpan = 3; td.className = 'ann-empty';
-      td.textContent = '????? ?????????? ??? ???? ???.';
+      td.textContent = 'فعلاً اعلانیه‌ای ثبت نشده است.';
       tr.appendChild(td); tbody.appendChild(tr); return;
     }
     list.forEach(a => {
@@ -613,9 +650,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const tdAct = document.createElement('td');
       const actions = document.createElement('div'); actions.className = 'actions';
-      const be = document.createElement('button'); be.className = 'btn'; be.textContent = '??????'; be.addEventListener('click', () => beginEditAnnouncement(a.id));
-      const bd = document.createElement('button'); bd.className = 'btn danger'; bd.textContent = '???'; bd.addEventListener('click', () => deleteAnnouncement(a.id));
+      const be = document.createElement('button'); be.className = 'btn'; be.textContent = 'ویرایش'; be.addEventListener('click', () => beginEditAnnouncement(a.id));
+      const bd = document.createElement('button'); bd.className = 'btn danger'; bd.textContent = 'حذف'; bd.addEventListener('click', () => deleteAnnouncement(a.id));
       actions.appendChild(be); actions.appendChild(bd);
+      // Force Persian labels using escapes to avoid encoding issues
+      try { be.textContent = '\u0648\u06CC\u0631\u0627\u06CC\u0634'; bd.textContent = '\u062D\u0630\u0641'; } catch {}
       tdAct.appendChild(actions); tr.appendChild(tdAct);
 
       tbody.appendChild(tr);
