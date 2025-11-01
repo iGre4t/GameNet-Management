@@ -189,6 +189,39 @@ document.addEventListener('DOMContentLoaded', () => {
   const ANNOUNCEMENTS_KEY = 'gamenet_announcements';
   let CURRENT_EDIT_ANN_ID = null;
 
+  // Use the shared confirm modal if available; fallback to native
+  function confirmStyled(message, onConfirm){
+    try {
+      if (typeof window.openConfirm === 'function') { window.openConfirm(message, onConfirm); return; }
+    } catch {}
+    const m = document.getElementById('confirm-modal');
+    if (m){
+      const msgEl = document.getElementById('confirm-message'); if (msgEl) msgEl.textContent = message || '';
+      m.classList.remove('hidden');
+      const cancel = document.getElementById('confirm-cancel');
+      const ok = document.getElementById('confirm-ok');
+      const cleanup = () => { if (ok) ok.onclick = null; if (cancel) cancel.onclick = null; m.classList.add('hidden'); };
+      if (cancel) cancel.onclick = cleanup;
+      if (ok) ok.onclick = () => { cleanup(); try { onConfirm && onConfirm(); } catch {} };
+      return;
+    }
+    // as last resort
+    if (confirm(message)) try { onConfirm && onConfirm(); } catch {}
+  }
+
+  function showToastSimple(text){
+    const t = document.getElementById('undo-toast');
+    if (!t) return;
+    t.textContent = text || '';
+    t.classList.remove('hidden');
+    t.classList.remove('leaving');
+    setTimeout(() => {
+      t.classList.add('leaving');
+      const onEnd = () => { t.removeEventListener('animationend', onEnd); t.classList.add('hidden'); t.classList.remove('leaving'); };
+      t.addEventListener('animationend', onEnd);
+    }, 2000);
+  }
+
   function ensureAnnounceStyles(){
     if (document.getElementById('announce-styles')) return;
     const s = document.createElement('style');
@@ -333,10 +366,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function deleteAnnouncement(id){
     const list = loadAnnouncements(); const idx = list.findIndex(x=>x.id===id); if (idx===-1) return;
-    if (!confirm('حذف این اعلانیه؟')) return;
-    list.splice(idx,1); saveAnnouncements(list);
-    renderAnnouncementsManage(); renderAnnouncementsHome();
-    if (CURRENT_EDIT_ANN_ID === id) cancelEditAnnouncement();
+    confirmStyled('حذف این اعلانیه؟', () => {
+      list.splice(idx,1); saveAnnouncements(list);
+      renderAnnouncementsManage(); renderAnnouncementsHome();
+      if (CURRENT_EDIT_ANN_ID === id) cancelEditAnnouncement();
+      showToastSimple('اعلانیه حذف شد.');
+    });
   }
 
   function injectAnnouncementTab(){
