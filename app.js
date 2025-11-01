@@ -255,14 +255,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const link = getFaviconLink();
     const img = ensureSidebarFavicon();
     const preview = document.getElementById('favicon-preview');
+    const gnLogo = document.querySelector('.sidebar-header .logo.small');
     if (dataUrl){
       link.href = dataUrl;
       if (img){ img.src = dataUrl; img.classList.remove('hidden'); }
       if (preview){ preview.src = dataUrl; preview.classList.remove('hidden'); }
+      if (gnLogo) gnLogo.classList.add('hidden');
     } else {
       link.href = 'data:,';
       if (img){ img.src = ''; img.classList.add('hidden'); }
       if (preview){ preview.src = ''; preview.classList.add('hidden'); }
+      if (gnLogo) gnLogo.classList.remove('hidden');
     }
   }
 

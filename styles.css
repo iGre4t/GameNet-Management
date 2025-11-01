@@ -116,6 +116,14 @@ select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(225,29,4
 #app-view.collapsed .nav-item span { width: 0; opacity: 0; pointer-events: none; }
 #app-view.collapsed .sidebar-header .title { width: 0; opacity: 0; pointer-events: none; }
 #app-view.collapsed .nav { align-items: center; }
+/* Center brand in collapsed header */
+#app-view.collapsed .sidebar-header { justify-content: center; }
+/* Icon-only logout + hide profile name in collapsed */
+#app-view.collapsed .profile-box { border: none; padding: 0; background: transparent; }
+#app-view.collapsed .profile-box .profile-name { display: none; }
+#app-view.collapsed .profile-box .label { display: none; }
+#app-view.collapsed #logout { width: 40px; height: 40px; padding: 8px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; }
+#app-view.collapsed #logout .icon { font-size: 20px; }
 /* In collapsed mode, remove active bg and center footer button */
 #app-view.collapsed .nav-item.active { background: transparent; border-color: transparent; color: inherit; }
 #app-view.collapsed .sidebar-footer { display: flex; justify-content: center; }
@@ -127,7 +135,7 @@ select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(225,29,4
   gap: 12px;
   background: #fff;
 }
-.sidebar-header { display: flex; align-items: center; gap: 10px; padding: 6px 8px; }
+.sidebar-header { display: flex; align-items: center; gap: 10px; padding: 6px 8px; justify-content: flex-start; }
 .logo.small { width: 36px; height: 36px; border-radius: 8px; background: var(--secondary); color: #fff; display: grid; place-items: center; font-weight: 700; }
 .sidebar .title { font-weight: 600; }
 /* Sidebar favicon presentation */

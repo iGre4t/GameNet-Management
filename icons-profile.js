@@ -49,6 +49,19 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.className = 'btn';
       btn.style.width = '100%';
       btn.textContent = 'خروج';
+      // Prepare icon + label, and clear raw text for better collapsed look
+      (function(){
+        btn.textContent = '';
+        const icon = document.createElement('i');
+        icon.className = 'ri-logout-box-r-line icon';
+        icon.setAttribute('aria-hidden', 'true');
+        const label = document.createElement('span');
+        label.className = 'label';
+        label.textContent = 'OrO�U^O�';
+        btn.appendChild(icon);
+        btn.appendChild(label);
+        try { btn.title = label.textContent; } catch {}
+      })();
       btn.addEventListener('click', () => {
         localStorage.removeItem('gamenet_auth');
         try { localStorage.removeItem('gamenet_current_user_id'); } catch {}
@@ -70,4 +83,3 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   } catch {}
 });
-
