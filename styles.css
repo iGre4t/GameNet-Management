@@ -199,6 +199,10 @@ select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(225,29,4
 .tab { display: none; }
 .tab.active { display: block; }
 
+/* Extra spacing for Home cards */
+#tab-home .cards { margin-top: 12px; }
+#tab-home > .card { margin-top: 12px; }
+
 .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .table-wrapper { overflow: auto; border: 1px solid var(--border); border-radius: 12px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
