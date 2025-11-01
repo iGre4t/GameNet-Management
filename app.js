@@ -184,6 +184,200 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// --- Announcements Tab + Home rendering ---
+(function(){
+  const ANNOUNCEMENTS_KEY = 'gamenet_announcements';
+
+  function ensureAnnounceStyles(){
+    if (document.getElementById('announce-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'announce-styles';
+    s.textContent = `
+    .editor-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 8px}
+    .rich-editor{min-height:180px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:12px;line-height:1.7;}
+    .rich-editor:empty:before{content:attr(placeholder);color:var(--muted)}
+    .ann-list{display:grid;gap:10px}
+    .ann-item{border:1px solid var(--border);border-radius:12px;background:#fff;padding:12px}
+    .ann-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+    .ann-head .icon{font-size:20px}
+    .ann-head .title{font-weight:700}
+    .ann-body{color:var(--text)}
+    .ann-empty{color:var(--muted);font-size:14px}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function loadAnnouncements(){
+    try { const raw = localStorage.getItem(ANNOUNCEMENTS_KEY); return raw ? JSON.parse(raw) : []; } catch { return []; }
+  }
+  function saveAnnouncements(list){
+    localStorage.setItem(ANNOUNCEMENTS_KEY, JSON.stringify(list||[]));
+  }
+
+  function sanitizeHtml(input){
+    // allow basic formatting only
+    const allowed = new Set(['P','BR','STRONG','B','EM','I','U','UL','OL','LI','DIV','SPAN']);
+    const tmp = document.createElement('div'); tmp.innerHTML = input || '';
+    (function walk(node){
+      const kids = [...node.childNodes];
+      for (const n of kids){
+        if (n.nodeType === 1){ // element
+          if (!allowed.has(n.tagName)){
+            // replace disallowed element with its text content
+            const text = document.createTextNode(n.textContent || '');
+            n.replaceWith(text);
+            continue;
+          }
+          // strip attributes
+          [...n.attributes].forEach(a => n.removeAttribute(a.name));
+          walk(n);
+        }
+      }
+    })(tmp);
+    return tmp.innerHTML;
+  }
+
+  function ensureHomeAnnouncementsCard(){
+    const home = document.getElementById('tab-home');
+    if (!home) return;
+    if (!document.getElementById('home-announcements')){
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = 'home-announcements-card';
+      card.innerHTML = '<h3>اعلانیه‌ها</h3><div id="home-announcements" class="ann-list"></div>';
+      home.appendChild(card);
+    }
+  }
+
+  function renderAnnouncementsHome(){
+    ensureHomeAnnouncementsCard();
+    const wrap = document.getElementById('home-announcements');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    const list = loadAnnouncements().slice().sort((a,b)=>b.ts-a.ts);
+    if (!list.length){
+      const p = document.createElement('p'); p.className = 'ann-empty'; p.textContent = 'فعلاً اعلانیه‌ای ثبت نشده است.'; wrap.appendChild(p); return;
+    }
+    list.forEach(a => {
+      const item = document.createElement('div'); item.className = 'ann-item';
+      const head = document.createElement('div'); head.className = 'ann-head';
+      head.innerHTML = `<i class="${a.icon||'ri-megaphone-line'} icon" aria-hidden="true"></i><div class="title">${a.title||''}</div>`;
+      const body = document.createElement('div'); body.className = 'ann-body'; body.innerHTML = a.html || '';
+      item.appendChild(head); item.appendChild(body); wrap.appendChild(item);
+    });
+  }
+
+  function injectAnnouncementTab(){
+    ensureAnnounceStyles();
+    const nav = document.querySelector('.nav');
+    if (nav && !nav.querySelector('[data-tab="announce"]')){
+      const btn = document.createElement('button');
+      btn.className = 'nav-item'; btn.setAttribute('data-tab','announce');
+      const span = document.createElement('span'); span.textContent = 'ارسال اعلانیه';
+      btn.appendChild(span);
+      btn.addEventListener('click', () => { if (typeof setActiveTab === 'function') setActiveTab('announce'); const el = document.getElementById('page-title'); if (el) el.textContent = 'ارسال اعلانیه'; });
+      // insert before Settings if present
+      const settingsBtn = nav.querySelector('[data-tab="settings"]');
+      if (settingsBtn) nav.insertBefore(btn, settingsBtn); else nav.appendChild(btn);
+    }
+
+    if (!document.getElementById('tab-announce')){
+      const sec = document.createElement('section');
+      sec.id = 'tab-announce'; sec.className = 'tab';
+      sec.innerHTML = `
+      <div class="card">
+        <h3>ارسال اعلانیه</h3>
+        <form id="ann-form" class="form">
+          <div class="grid full">
+            <label class="field">
+              <span>عنوان</span>
+              <input id="ann-title" type="text" placeholder="مثلاً: اطلاعیه مهم" required />
+            </label>
+            <label class="field">
+              <span>آیکن</span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <select id="ann-icon">
+                  <option value="ri-megaphone-line">بلندگو</option>
+                  <option value="ri-notification-3-line">اعلان</option>
+                  <option value="ri-information-line">اطلاعات</option>
+                  <option value="ri-error-warning-line">هشدار</option>
+                  <option value="ri-star-smile-line">ستاره</option>
+                  <option value="ri-fire-line">فوری</option>
+                  <option value="ri-calendar-event-line">رویداد</option>
+                  <option value="ri-heart-2-line">قلب</option>
+                </select>
+                <i id="ann-icon-preview" class="ri-megaphone-line" aria-hidden="true" style="font-size:20px;"></i>
+              </div>
+            </label>
+          </div>
+          <label class="field full">
+            <span>متن پیام</span>
+            <div class="editor-toolbar">
+              <button type="button" class="btn" data-cmd="bold" title="پررنگ (Ctrl+B)"><i class="ri-bold"></i> پررنگ</button>
+              <button type="button" class="btn" data-cmd="italic" title="کج"><i class="ri-italic"></i> کج</button>
+              <button type="button" class="btn" data-cmd="underline" title="زیرخط"><i class="ri-underline"></i> زیرخط</button>
+              <button type="button" class="btn" data-cmd="insertUnorderedList" title="فهرست نشانه‌دار"><i class="ri-list-unordered"></i> لیست</button>
+              <button type="button" class="btn" data-cmd="insertOrderedList" title="فهرست شماره‌دار"><i class="ri-list-ordered"></i> شماره‌دار</button>
+            </div>
+            <div id="ann-editor" class="rich-editor" contenteditable="true" role="textbox" aria-multiline="true" placeholder="پیام خود را اینجا بنویسید..."></div>
+          </label>
+          <div class="modal-actions">
+            <button type="submit" class="btn primary">ارسال</button>
+          </div>
+          <p id="ann-msg" class="hint"></p>
+        </form>
+      </div>`;
+      const content = document.querySelector('.content'); if (content) content.appendChild(sec);
+
+      // wire handlers
+      const iconSel = sec.querySelector('#ann-icon');
+      const iconPrev = sec.querySelector('#ann-icon-preview');
+      iconSel && iconSel.addEventListener('change', ()=>{ if (iconPrev) { iconPrev.className = iconSel.value + ' icon'; }});
+      const editor = sec.querySelector('#ann-editor');
+      sec.querySelectorAll('.editor-toolbar [data-cmd]').forEach(btn => btn.addEventListener('click', () => { const cmd = btn.getAttribute('data-cmd'); try { document.execCommand(cmd, false, null); } catch {} editor && editor.focus(); }));
+      editor && editor.addEventListener('keydown', (ev) => {
+        if (ev.ctrlKey && (ev.key === 'b' || ev.key === 'B')) { ev.preventDefault(); try { document.execCommand('bold'); } catch {} }
+        if (ev.ctrlKey && !ev.shiftKey && (ev.key === 'l' || ev.key === 'L')) { ev.preventDefault(); try { document.execCommand('insertUnorderedList'); } catch {} }
+        if (ev.ctrlKey && ev.shiftKey && (ev.key === 'l' || ev.key === 'L')) { ev.preventDefault(); try { document.execCommand('insertOrderedList'); } catch {} }
+      });
+      const form = sec.querySelector('#ann-form');
+      form && form.addEventListener('submit', (e) => {
+        e.preventDefault(); const title = String((sec.querySelector('#ann-title')||{}).value || '').trim();
+        const icon = (iconSel && iconSel.value) || 'ri-megaphone-line';
+        const htmlRaw = (editor && editor.innerHTML) || '';
+        const msg = sec.querySelector('#ann-msg');
+        const textOnly = htmlRaw.replace(/<[^>]+>/g,'').trim();
+        if (!title) { msg && (msg.textContent = 'عنوان را وارد کنید.'); return; }
+        if (!textOnly) { msg && (msg.textContent = 'متن پیام خالی است.'); return; }
+        const clean = sanitizeHtml(htmlRaw);
+        const list = loadAnnouncements();
+        list.push({ id: Math.random().toString(36).slice(2), icon, title, html: clean, ts: Date.now() });
+        saveAnnouncements(list);
+        // reset
+        const tEl = sec.querySelector('#ann-title'); if (tEl) tEl.value = '';
+        if (editor) editor.innerHTML = '';
+        if (msg) { msg.textContent = 'ارسال شد'; setTimeout(()=> msg.textContent = '', 1500); }
+        renderAnnouncementsHome();
+      });
+    }
+  }
+
+  // Ensure on load
+  function initAnnouncements(){ ensureAnnounceStyles(); injectAnnouncementTab(); renderAnnouncementsHome(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initAnnouncements); else initAnnouncements();
+
+  // Override setActiveTab to include new title safely
+  window.setActiveTab = function(tab){
+    qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    qsa('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
+    const titles = { home: 'خانه', users: 'کاربران', branches: 'شعب', settings: 'تنظیمات', announce: 'ارسال اعلانیه' };
+    const el = qs('#page-title'); if (el) el.textContent = titles[tab] || '';
+  };
+
+  // Expose for other blocks
+  window.renderAnnouncementsHome = renderAnnouncementsHome;
+})();
+
 // --- Developer settings (tab) + favicon cropper injection ---
 (function(){
   const SITE_TITLE_KEY = 'gamenet_site_title';
