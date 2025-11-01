@@ -203,6 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
     .ann-head .title{font-weight:700}
     .ann-body{color:var(--text)}
     .ann-empty{color:var(--muted);font-size:14px}
+    /* Fix: prevent label from triggering first button in toolbar */
+    #tab-announce label.field.full{pointer-events:none}
+    #tab-announce label.field.full>*{pointer-events:auto}
     `;
     document.head.appendChild(s);
   }
