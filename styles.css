@@ -266,6 +266,19 @@ input[type=number] { -moz-appearance: textfield; }
 .btn.danger { color: #b91c1c; border-color: #fecaca; background: #fff5f5; }
 .btn.danger:hover { background: #fee2e2; border-color: #fca5a5; }
 
+/* Roles multiselect pills */
+.roles-boxes { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
+.role-pill {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.role-pill.selected { background: rgba(225,29,46,0.10); border-color: var(--primary); color: var(--primary-600); }
+
 /* Toast (undo) */
 /* A small floating pill with slide-up "blub" entrance and 3s timer bar */
 .toast {

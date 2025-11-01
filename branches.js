@@ -1247,6 +1247,10 @@ document.addEventListener('DOMContentLoaded', () => {
       act.appendChild(del); tr.appendChild(act);
       tbody.appendChild(tr);
     });
+    // attach actions
+    qsa('#employees-body [data-roles-emp]').forEach(btn => {
+      btn.addEventListener('click', () => openEmployeeRolesModal(btn.getAttribute('data-roles-emp')));
+    });
   }
 
   function renderBranchGeneral(branch){
@@ -1524,7 +1528,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="form">
           <label class="field full">
             <span>انتخاب نقش ها</span>
-            <select id="employee-roles-select" multiple size="5"></select>
+            <div id="employee-roles-boxes" class="roles-boxes"></div>
           </label>
         </div>
         <div class="modal-actions">
@@ -1534,8 +1538,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <p id="employee-roles-msg" class="hint"></p>
       </div>`;
     document.body.appendChild(modal);
-    const sel = modal.querySelector('#employee-roles-select');
-    if (sel){ BRANCH_ROLE_OPTIONS.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o); }); }
+    const box = modal.querySelector('#employee-roles-boxes');
+    if (box){ BRANCH_ROLE_OPTIONS.forEach(r => { const pill = document.createElement('button'); pill.type='button'; pill.className='role-pill'; pill.setAttribute('data-role', r); pill.textContent=r; pill.addEventListener('click', () => pill.classList.toggle('selected')); box.appendChild(pill); }); }
     qs('#employee-roles-cancel')?.addEventListener('click', () => qs('#employee-roles-modal')?.classList.add('hidden'));
     qs('#employee-roles-save')?.addEventListener('click', saveEmployeeRolesFromModal);
   }
@@ -1548,8 +1552,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ensureBranchExtras(br);
     br.employeeRoles = (br.employeeRoles && typeof br.employeeRoles === 'object') ? br.employeeRoles : {};
     const selected = new Set(Array.isArray(br.employeeRoles[CURRENT_ROLE_EMP]) ? br.employeeRoles[CURRENT_ROLE_EMP].map(String) : []);
-    const sel = qs('#employee-roles-select');
-    if (sel){ [...sel.options].forEach(o => { o.selected = selected.has(o.value); }); }
+    const box = qs('#employee-roles-boxes');
+    if (box){ box.querySelectorAll('.role-pill').forEach(el => { const val = el.getAttribute('data-role')||''; el.classList.toggle('selected', selected.has(val)); }); }
     qs('#employee-roles-modal')?.classList.remove('hidden');
   }
 
@@ -1559,8 +1563,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!br) return;
     ensureBranchExtras(br);
     br.employeeRoles = (br.employeeRoles && typeof br.employeeRoles === 'object') ? br.employeeRoles : {};
-    const sel = qs('#employee-roles-select');
-    const roles = sel ? [...sel.options].filter(o => o.selected).map(o => o.value) : [];
+    const box = qs('#employee-roles-boxes');
+    const roles = box ? [...box.querySelectorAll('.role-pill.selected')].map(el => el.getAttribute('data-role')).filter(Boolean) : [];
     br.employeeRoles[CURRENT_ROLE_EMP] = roles;
     saveBranches(branches);
     qs('#employee-roles-modal')?.classList.add('hidden');
