@@ -187,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- Announcements Tab + Home rendering ---
 (function(){
   const ANNOUNCEMENTS_KEY = 'gamenet_announcements';
+  let CURRENT_EDIT_ANN_ID = null;
 
   function ensureAnnounceStyles(){
     if (document.getElementById('announce-styles')) return;
@@ -202,10 +203,19 @@ document.addEventListener('DOMContentLoaded', () => {
     .ann-head .icon{font-size:20px}
     .ann-head .title{font-weight:700}
     .ann-body{color:var(--text)}
+    .ann-meta{color:var(--muted);font-size:12px;margin-top:6px}
     .ann-empty{color:var(--muted);font-size:14px}
     /* Fix: prevent label from triggering first button in toolbar */
     #tab-announce label.field.full{pointer-events:none}
     #tab-announce label.field.full>*{pointer-events:auto}
+    /* Manage list in announce tab */
+    #ann-manage{margin-top:16px}
+    #ann-manage h4{margin:0 0 8px 0}
+    #ann-manage-list .ann-row{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:10px;background:#fff}
+    #ann-manage-list .ann-row .grow{flex:1;min-width:0}
+    #ann-manage-list .ann-row .title{font-weight:600}
+    #ann-manage-list .ann-row .meta{color:var(--muted);font-size:12px}
+    #ann-manage-list .actions{display:flex;gap:6px}
     `;
     document.head.appendChild(s);
   }
@@ -268,8 +278,65 @@ document.addEventListener('DOMContentLoaded', () => {
       const head = document.createElement('div'); head.className = 'ann-head';
       head.innerHTML = `<i class="${a.icon||'ri-megaphone-line'} icon" aria-hidden="true"></i><div class="title">${a.title||''}</div>`;
       const body = document.createElement('div'); body.className = 'ann-body'; body.innerHTML = a.html || '';
-      item.appendChild(head); item.appendChild(body); wrap.appendChild(item);
+      const meta = document.createElement('div'); meta.className = 'ann-meta';
+      const sender = a.byName || '';
+      meta.textContent = sender ? `ارسال توسط: ${sender}` : '';
+      item.appendChild(head); item.appendChild(body); if (sender) item.appendChild(meta); wrap.appendChild(item);
     });
+  }
+
+  function renderAnnouncementsManage(){
+    const listWrap = document.getElementById('ann-manage-list');
+    if (!listWrap) return;
+    const list = loadAnnouncements().slice().sort((a,b)=>b.ts-a.ts);
+    listWrap.innerHTML = '';
+    if (!list.length){
+      const p = document.createElement('p'); p.className = 'ann-empty'; p.textContent = 'فعلاً اعلانیه‌ای ثبت نشده است.'; listWrap.appendChild(p); return;
+    }
+    list.forEach(a => {
+      const row = document.createElement('div'); row.className = 'ann-row'; row.setAttribute('data-id', a.id);
+      const icon = document.createElement('i'); icon.className = `${a.icon||'ri-megaphone-line'} icon`; row.appendChild(icon);
+      const info = document.createElement('div'); info.className = 'grow';
+      const t = document.createElement('div'); t.className = 'title'; t.textContent = a.title || '';
+      const m = document.createElement('div'); m.className = 'meta'; m.textContent = (a.byName? `ارسال توسط: ${a.byName}`: '');
+      info.appendChild(t); if (a.byName) info.appendChild(m); row.appendChild(info);
+      const actions = document.createElement('div'); actions.className = 'actions';
+      const be = document.createElement('button'); be.className = 'btn'; be.textContent = 'ویرایش'; be.addEventListener('click', () => beginEditAnnouncement(a.id));
+      const bd = document.createElement('button'); bd.className = 'btn danger'; bd.textContent = 'حذف'; bd.addEventListener('click', () => deleteAnnouncement(a.id));
+      actions.appendChild(be); actions.appendChild(bd); row.appendChild(actions);
+      listWrap.appendChild(row);
+    });
+  }
+
+  function beginEditAnnouncement(id){
+    const sec = document.getElementById('tab-announce'); if (!sec) return;
+    const list = loadAnnouncements(); const idx = list.findIndex(x=>x.id===id); if (idx===-1) return;
+    const item = list[idx];
+    CURRENT_EDIT_ANN_ID = id;
+    const titleEl = sec.querySelector('#ann-title'); if (titleEl) titleEl.value = item.title || '';
+    const iconSel = sec.querySelector('#ann-icon'); if (iconSel) { iconSel.value = item.icon || 'ri-megaphone-line'; const iconPrev = sec.querySelector('#ann-icon-preview'); if (iconPrev) iconPrev.className = (item.icon || 'ri-megaphone-line') + ' icon'; }
+    const editor = sec.querySelector('#ann-editor'); if (editor) editor.innerHTML = item.html || '';
+    const submitBtn = sec.querySelector('#ann-submit') || sec.querySelector('.modal-actions button[type="submit"]'); if (submitBtn) submitBtn.textContent = 'ذخیره';
+    let cancelBtn = sec.querySelector('#ann-cancel');
+    if (!cancelBtn){
+      const actions = sec.querySelector('.modal-actions');
+      if (actions){ cancelBtn = document.createElement('button'); cancelBtn.id='ann-cancel'; cancelBtn.type='button'; cancelBtn.className='btn'; cancelBtn.textContent='لغو'; actions.appendChild(cancelBtn); cancelBtn.addEventListener('click', cancelEditAnnouncement); }
+    } else { cancelBtn.classList.remove('hidden'); }
+  }
+
+  function cancelEditAnnouncement(){
+    const sec = document.getElementById('tab-announce'); if (!sec) return;
+    CURRENT_EDIT_ANN_ID = null;
+    const submitBtn = sec.querySelector('#ann-submit') || sec.querySelector('.modal-actions button[type="submit"]'); if (submitBtn) submitBtn.textContent = 'ارسال';
+    const cancelBtn = sec.querySelector('#ann-cancel'); if (cancelBtn) cancelBtn.classList.add('hidden');
+  }
+
+  function deleteAnnouncement(id){
+    const list = loadAnnouncements(); const idx = list.findIndex(x=>x.id===id); if (idx===-1) return;
+    if (!confirm('حذف این اعلانیه؟')) return;
+    list.splice(idx,1); saveAnnouncements(list);
+    renderAnnouncementsManage(); renderAnnouncementsHome();
+    if (CURRENT_EDIT_ANN_ID === id) cancelEditAnnouncement();
   }
 
   function injectAnnouncementTab(){
@@ -334,6 +401,15 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`;
       const content = document.querySelector('.content'); if (content) content.appendChild(sec);
 
+      // Add manage container under the card
+      const card = sec.querySelector('.card');
+      if (card && !sec.querySelector('#ann-manage')){
+        const manage = document.createElement('div');
+        manage.id = 'ann-manage';
+        manage.innerHTML = '<h4>اعلانیه‌های ارسال‌شده</h4><div id="ann-manage-list"></div>';
+        card.appendChild(manage);
+      }
+
       // wire handlers
       const iconSel = sec.querySelector('#ann-icon');
       const iconPrev = sec.querySelector('#ann-icon-preview');
@@ -362,6 +438,16 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch {}
       });
       const form = sec.querySelector('#ann-form');
+
+      // Ensure submit button has id; add cancel button placeholder
+      const submitBtn0 = sec.querySelector('.modal-actions button[type="submit"]');
+      if (submitBtn0) submitBtn0.id = 'ann-submit';
+      if (!sec.querySelector('#ann-cancel')){
+        const actions = sec.querySelector('.modal-actions');
+        if (actions){ const cancelB = document.createElement('button'); cancelB.id='ann-cancel'; cancelB.type='button'; cancelB.className='btn hidden'; cancelB.textContent='لغو'; actions.appendChild(cancelB); cancelB.addEventListener('click', cancelEditAnnouncement); }
+      }
+      // initial manage render
+      renderAnnouncementsManage();
       form && form.addEventListener('submit', (e) => {
         e.preventDefault(); const title = String((sec.querySelector('#ann-title')||{}).value || '').trim();
         const icon = (iconSel && iconSel.value) || 'ri-megaphone-line';
@@ -372,13 +458,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!textOnly) { msg && (msg.textContent = 'متن پیام خالی است.'); return; }
         const clean = sanitizeHtml(htmlRaw);
         const list = loadAnnouncements();
-        list.push({ id: Math.random().toString(36).slice(2), icon, title, html: clean, ts: Date.now() });
+        const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        const byName = currentUser ? `${(currentUser.first||'').trim()} ${(currentUser.last||'').trim()}`.trim() : '';
+        const byId = currentUser ? currentUser.id : '';
+        if (CURRENT_EDIT_ANN_ID){
+          const idx = list.findIndex(x=>x.id===CURRENT_EDIT_ANN_ID);
+          if (idx !== -1){ list[idx] = { ...list[idx], icon, title, html: clean, byId: byId || list[idx].byId, byName: byName || list[idx].byName }; }
+        } else {
+          list.push({ id: Math.random().toString(36).slice(2), icon, title, html: clean, ts: Date.now(), byId, byName });
+        }
         saveAnnouncements(list);
         // reset
         const tEl = sec.querySelector('#ann-title'); if (tEl) tEl.value = '';
         if (editor) editor.innerHTML = '';
+        CURRENT_EDIT_ANN_ID = null; const sb = sec.querySelector('#ann-submit') || sec.querySelector('.modal-actions button[type="submit"]'); if (sb) sb.textContent = 'ارسال'; const cb = sec.querySelector('#ann-cancel'); if (cb) cb.classList.add('hidden');
         if (msg) { msg.textContent = 'ارسال شد'; setTimeout(()=> msg.textContent = '', 1500); }
-        renderAnnouncementsHome();
+        renderAnnouncementsHome(); renderAnnouncementsManage();
       });
     }
   }
