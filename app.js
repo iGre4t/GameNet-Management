@@ -209,17 +209,58 @@ document.addEventListener('DOMContentLoaded', () => {
     if (confirm(message)) try { onConfirm && onConfirm(); } catch {}
   }
 
-  function showToastSimple(text){
-    const t = document.getElementById('undo-toast');
-    if (!t) return;
-    t.textContent = text || '';
+  // Announcements-specific undo toast (separate element to avoid conflicts)
+  let ANN_LAST_UNDO = null; // { item, index }
+  let ANN_UNDO_TIMER = null;
+  let ANN_UNDO_WIRED = false;
+
+  function ensureAnnUndoWiring(){
+    if (ANN_UNDO_WIRED) return; ANN_UNDO_WIRED = true;
+    window.addEventListener('keydown', function(e){
+      if (ANN_LAST_UNDO && (e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')){
+        e.preventDefault(); if (e.stopPropagation) e.stopPropagation();
+        performAnnUndo();
+      }
+    });
+  }
+
+  function getAnnToastEl(){
+    let t = document.getElementById('ann-undo-toast');
+    if (!t){ t = document.createElement('div'); t.id = 'ann-undo-toast'; t.className = 'toast hidden'; document.body.appendChild(t); }
+    return t;
+  }
+
+  function hideAnnUndoToast(){
+    const t = getAnnToastEl();
+    if (ANN_UNDO_TIMER){ clearTimeout(ANN_UNDO_TIMER); ANN_UNDO_TIMER = null; }
+    if (t.classList.contains('hidden')) return;
+    t.classList.add('leaving');
+    const onEnd = () => { t.removeEventListener('animationend', onEnd); t.classList.add('hidden'); t.classList.remove('leaving'); t.onclick = null; };
+    t.addEventListener('animationend', onEnd);
+  }
+
+  function showAnnUndoToast(text){
+    ensureAnnUndoWiring();
+    const t = getAnnToastEl();
+    t.innerHTML = `${text} <button id="ann-undo-action" class="link" type="button">بازگردانی</button> <span class="hint">یا Ctrl+Z</span>`;
     t.classList.remove('hidden');
     t.classList.remove('leaving');
-    setTimeout(() => {
-      t.classList.add('leaving');
-      const onEnd = () => { t.removeEventListener('animationend', onEnd); t.classList.add('hidden'); t.classList.remove('leaving'); };
-      t.addEventListener('animationend', onEnd);
-    }, 2000);
+    if (ANN_UNDO_TIMER) { clearTimeout(ANN_UNDO_TIMER); ANN_UNDO_TIMER = null; }
+    const btn = document.getElementById('ann-undo-action');
+    if (btn) btn.onclick = function(e){ if (e && e.stopPropagation) e.stopPropagation(); performAnnUndo(); };
+    t.onclick = function(){ performAnnUndo(); };
+    ANN_UNDO_TIMER = setTimeout(() => { ANN_LAST_UNDO = null; hideAnnUndoToast(); }, 5000);
+  }
+
+  function performAnnUndo(){
+    if (!ANN_LAST_UNDO) { hideAnnUndoToast(); return; }
+    const list = loadAnnouncements();
+    const idx = Math.max(0, Number(ANN_LAST_UNDO.index) || 0);
+    list.splice(idx, 0, ANN_LAST_UNDO.item);
+    saveAnnouncements(list);
+    ANN_LAST_UNDO = null;
+    renderAnnouncementsManage(); renderAnnouncementsHome();
+    hideAnnUndoToast();
   }
 
   function ensureAnnounceStyles(){
@@ -367,10 +408,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function deleteAnnouncement(id){
     const list = loadAnnouncements(); const idx = list.findIndex(x=>x.id===id); if (idx===-1) return;
     confirmStyled('حذف این اعلانیه؟', () => {
-      list.splice(idx,1); saveAnnouncements(list);
+      const removed = list[idx]; list.splice(idx,1); saveAnnouncements(list);
       renderAnnouncementsManage(); renderAnnouncementsHome();
       if (CURRENT_EDIT_ANN_ID === id) cancelEditAnnouncement();
-      showToastSimple('اعلانیه حذف شد.');
+      ANN_LAST_UNDO = { item: removed, index: idx }; const title = (removed && removed.title) ? `«${removed.title}»` : '';
+      showAnnUndoToast(`اعلانیه ${title} حذف شد — برای بازگردانی کلیک کنید یا Ctrl+Z.`);
     });
   }
 
