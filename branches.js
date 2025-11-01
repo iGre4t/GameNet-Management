@@ -277,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const sysName = qs('#system-name-input'); if (sysName) sysName.setAttribute('placeholder','نام سیستم');
         const addBtn = qs('#add-system-form button[type="submit"]'); if (addBtn) addBtn.textContent = 'افزودن سیستم';
-        const headThs = qsa('#branch-page-view thead th');
+        const headThs = qsa('#branch-tab-systems thead th');
         if (headThs && headThs.length >= 4){ headThs[1].textContent = 'نام سیستم'; headThs[2].textContent = 'وضعیت قیمت'; headThs[3].textContent = 'عملیات'; }
       } catch {}
     })();
@@ -1188,6 +1188,15 @@ document.addEventListener('DOMContentLoaded', () => {
         wrapper.appendChild(openBtn);
         header.replaceChild(wrapper, oldForm);
       }
+      // Set employees table header labels (clean Persian)
+      try {
+        const ths2 = card.querySelectorAll('thead th');
+        if (ths2 && ths2.length >= 3){
+          ths2[0].textContent = 'نام و نام خانوادگی';
+          ths2[1].textContent = 'شماره تماس';
+          ths2[2].textContent = 'عملیات';
+        }
+      } catch {}
       const ths = card.querySelectorAll('thead th');
       if (ths && ths.length >= 3){
         ths[0].textContent = 'نام و نام خانوادگی';
