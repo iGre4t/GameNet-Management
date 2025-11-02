@@ -71,7 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
       box.appendChild(btn);
       foot.appendChild(box);
     }
+    // Initial render
     renderProfileBox();
+
+    // Expose for other scripts (e.g., update after login/logout)
+    try { window.renderProfileBox = renderProfileBox; } catch {}
 
     // Final titles override for page title
     window.setActiveTab = function(tab){

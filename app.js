@@ -20,6 +20,7 @@ function setView(loggedIn) {
     renderUsers();
     updateKpis();
     try { renderUserPill(); } catch {}
+    try { if (typeof renderProfileBox === 'function') renderProfileBox(); } catch {}
   } else {
     app.classList.add('hidden');
     login.classList.remove('hidden');
@@ -74,6 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setView(true);
       setActiveTab('home');
       try { renderUserPill(); } catch {}
+      try { if (typeof renderProfileBox === 'function') renderProfileBox(); } catch {}
     } else {
       err.textContent = 'ورود ناموفق بود. لطفا اطلاعات را بررسی کنید.';
     }
@@ -111,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
       setView(true);
       setActiveTab('home');
       try { renderUserPill(); } catch {}
+      try { if (typeof renderProfileBox === 'function') renderProfileBox(); } catch {}
     } else {
       if (err) err.textContent = '???? ?????? ???. ???? ??????? ?? ????? ????.';
     }
@@ -151,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderClock();
   setInterval(renderClock, 1000);
   try { renderUserPill(); } catch {}
+  try { if (typeof renderProfileBox === 'function') renderProfileBox(); } catch {}
 
   // Sidebar toggle (compact)
   qs('#sidebarToggle')?.addEventListener('click', () => {
@@ -1399,7 +1403,7 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch {}
   const addBtn = qs('#add-user'); addBtn && addBtn.addEventListener('click', () => openUserModalX());
   // Initial render with extended schema
-  try { renderUsers(); updateKpis(); renderUserPill(); } catch {}
+  try { renderUsers(); updateKpis(); renderUserPill(); if (typeof renderProfileBox === 'function') renderProfileBox(); } catch {}
   // Remove any leftover permissions buttons in users table
   try {
     const cleanupPermButtons = () => qsa('.btn[data-act="perm"]').forEach(b => b.remove());
