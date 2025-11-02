@@ -103,13 +103,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // If backend exists, sync session and preload users, then show view if logged
   (async () => {
     const hasApi = await detectBackend();
-    if (hasApi){
-      await ensureSessionAndPreload();
-      const t = localStorage.getItem(AUTH_KEY);
-      if (t) {
-        setView(true);
-        try { renderUsers(); updateKpis(); } catch {}
-      }
+    if (!hasApi) return;
+    await ensureSessionAndPreload();
+    const t = localStorage.getItem(AUTH_KEY);
+    if (t) {
+      setView(true);
+      try { renderUsers(); updateKpis(); } catch {}
     }
   })();
 

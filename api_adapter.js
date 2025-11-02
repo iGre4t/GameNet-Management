@@ -10,8 +10,16 @@
 
   async function detect(){
     try { const j = await apiGet('/api/ping.php'); window.BACKEND = !!(j && j.ok); } catch { window.BACKEND = false; }
-    if (window.BACKEND){
-      try { const s = await apiGet('/api/session.php'); if (s && s.ok && s.user){ try { localStorage.setItem('gamenet_auth','ok'); localStorage.setItem('gamenet_current_user_id', s.user.id||'admin'); } catch {} } } catch {}
+    if (!window.BACKEND) return;
+    let hasSession = false;
+    try {
+      const s = await apiGet('/api/session.php');
+      if (s && s.ok && s.user){
+        hasSession = true;
+        try { localStorage.setItem('gamenet_auth','ok'); localStorage.setItem('gamenet_current_user_id', s.user.id||'admin'); } catch {}
+      }
+    } catch {}
+    if (hasSession){
       try { const u = await apiGet('/api/users.php'); if (u && u.ok && Array.isArray(u.users)) window.USERS_CACHE = u.users; } catch {}
       try { if (typeof updateKpis === 'function') updateKpis(); if (typeof renderUsers === 'function') renderUsers(); } catch {}
     }
@@ -42,4 +50,3 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', detect); else detect();
 })();
-

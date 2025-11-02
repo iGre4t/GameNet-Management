@@ -19,20 +19,13 @@ if ($u === '' || $p === '') {
 
 try {
     $pdo = gn_db();
-    // Ensure table exists
-    $pdo->exec('CREATE TABLE IF NOT EXISTS users (
-        id VARCHAR(64) PRIMARY KEY,
-        code VARCHAR(10) UNIQUE,
-        first VARCHAR(100),
-        last VARCHAR(100),
-        phone VARCHAR(20) UNIQUE,
-        email VARCHAR(190) UNIQUE,
-        password_hash VARCHAR(255) NOT NULL,
-        active TINYINT(1) NOT NULL DEFAULT 1,
-        permissions_json TEXT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    // Verify table exists (no CREATE to avoid needing CREATE privilege)
+    try {
+        $pdo->query("SELECT 1 FROM users LIMIT 1");
+    } catch (Throwable $e) {
+        gn_json(['ok' => false, 'error' => 'missing_schema'], 500);
+        return;
+    }
 
     // If username is 'admin', ensure an admin row exists (idempotent)
     if (strtolower($u) === 'admin') {
