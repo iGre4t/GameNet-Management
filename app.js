@@ -162,6 +162,24 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch {
         ok = false;
       }
+      // Soft fallback to local admin/staff if backend didn't accept
+      if (!ok) {
+        if (user === 'admin' && pass === saved) {
+          localStorage.setItem(AUTH_KEY, 'ok');
+          try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
+          ok = true;
+        } else {
+          try {
+            const users = (typeof loadUsers === 'function') ? loadUsers().filter(u => !u.email) : [];
+            const found = users.find(u => (u.phone === user) || (u.code === user));
+            if (found && found.active && (String(found.password || '') === String(pass))) {
+              localStorage.setItem(AUTH_KEY, 'ok');
+              try { localStorage.setItem(CURRENT_USER_KEY, found.id); } catch {}
+              ok = true;
+            }
+          } catch {}
+        }
+      }
     } else if (user === 'admin' && pass === saved) {
       localStorage.setItem(AUTH_KEY, 'ok');
       try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
