@@ -79,6 +79,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Enhanced login: capture-phase handler to support staff users
+  const formX = qs('#login-form');
+  formX?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const user = qs('#username').value.trim();
+    const pass = qs('#password').value;
+    const err = qs('#login-error');
+    const saved = localStorage.getItem(PASS_KEY) || '1234';
+    let ok = false;
+
+    if (user === 'admin' && pass === saved) {
+      localStorage.setItem(AUTH_KEY, 'ok');
+      try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
+      ok = true;
+    } else {
+      try {
+        const users = (typeof loadUsers === 'function') ? loadUsers().filter(u => !u.email) : [];
+        const found = users.find(u => (u.phone === user) || (u.code === user));
+        if (found && found.active && (String(found.password || '') === String(pass))) {
+          localStorage.setItem(AUTH_KEY, 'ok');
+          try { localStorage.setItem(CURRENT_USER_KEY, found.id); } catch {}
+          ok = true;
+        }
+      } catch {}
+    }
+
+    if (ok) {
+      if (err) err.textContent = '';
+      setView(true);
+      setActiveTab('home');
+      try { renderUserPill(); } catch {}
+    } else {
+      if (err) err.textContent = '???? ?????? ???. ???? ??????? ?? ????? ????.';
+    }
+  }, true);
+
   // Logout
   qs('#logout')?.addEventListener('click', () => {
     localStorage.removeItem(AUTH_KEY);
