@@ -10,3 +10,6 @@ define('DB_PASS', 'CHANGE_ME');
 // Session cookie options (adjust domain/secure in production if needed)
 define('SESSION_NAME', 'GNSESSID');
 
+// Temporary emergency login key (server-side only). Set to a long random string in config.php.
+// If empty, the dev login endpoint is disabled.
+define('DEV_LOGIN_KEY', '');
