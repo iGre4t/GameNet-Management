@@ -36,13 +36,14 @@ try {
 
     // If username is 'admin', ensure an admin row exists (idempotent)
     if (strtolower($u) === 'admin') {
-        // Insert a stable admin row with primary key 'admin' to avoid duplicates
-        $sql = "INSERT INTO users (id, code, first, last, email, password_hash, active, permissions_json)
-                VALUES ('admin', '00000', 'Admin', 'User', 'admin@example.com', :ph, 1, :perms)
-                ON DUPLICATE KEY UPDATE updated_at = NOW()";
-        $ph = password_hash('1234', PASSWORD_DEFAULT);
-        $perms = json_encode(['tabs'=>new stdClass(), 'parts'=>new stdClass()], JSON_UNESCAPED_UNICODE);
-        $pdo->prepare($sql)->execute([':ph'=>$ph, ':perms'=>$perms]);
+        // Insert admin user only if it does not exist (avoid requiring UPDATE privilege)
+        $exists = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE id='admin' OR code='00000' OR email='admin@example.com'")->fetchColumn();
+        if ($exists === 0) {
+            $ph = password_hash('1234', PASSWORD_DEFAULT);
+            $perms = json_encode(['tabs'=>new stdClass(), 'parts'=>new stdClass()], JSON_UNESCAPED_UNICODE);
+            $ins = $pdo->prepare("INSERT INTO users (id, code, first, last, email, password_hash, active, permissions_json) VALUES ('admin','00000','Admin','User','admin@example.com',:ph,1,:perms)");
+            $ins->execute([':ph'=>$ph, ':perms'=>$perms]);
+        }
     }
 
     // Find by code OR phone OR email (admin can use 'admin' shortcut as email)
