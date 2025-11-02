@@ -41,6 +41,27 @@ function gn_json($data, int $code = 200): void {
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
 }
 
+// --- File storage fallback (no DB) ---
+function gn_data_dir(): string {
+    $dir = __DIR__ . '/_data';
+    if (!is_dir($dir)) @mkdir($dir, 0755, true);
+    return $dir;
+}
+function gn_users_file(): string { return gn_data_dir() . '/users.json'; }
+function gn_load_users_file(): array {
+    $file = gn_users_file();
+    if (!is_file($file)) return [];
+    $raw = @file_get_contents($file);
+    if ($raw === false) return [];
+    $j = json_decode($raw, true);
+    return is_array($j) ? $j : [];
+}
+function gn_save_users_file(array $arr): bool {
+    $file = gn_users_file();
+    $ok = @file_put_contents($file, json_encode($arr, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
+    return $ok !== false;
+}
+
 function gn_require_method(string $method): void {
     if ($_SERVER['REQUEST_METHOD'] !== strtoupper($method)) {
         gn_json(['ok' => false, 'error' => 'method_not_allowed'], 405);
@@ -61,4 +82,3 @@ function gn_is_admin_row(array $row): bool {
     // Heuristic: admin has code '00000' or email set to admin@example.com
     return (isset($row['code']) && $row['code'] === '00000') || (isset($row['email']) && $row['email'] === 'admin@example.com');
 }
-
