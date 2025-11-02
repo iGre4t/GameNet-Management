@@ -34,21 +34,26 @@ async function detectBackend(){
 }
 async function ensureSessionAndPreload(){
   if (!window.BACKEND) return false;
-  // Check session and preload users
+  let hasSession = false;
+  // Check session first
   try {
     const s = await apiGet('/api/session.php');
     if (s && s.ok && s.user){
+      hasSession = true;
       try { localStorage.setItem(AUTH_KEY, 'ok'); } catch {}
       try { localStorage.setItem(CURRENT_USER_KEY, s.user.id || 'admin'); } catch {}
     }
   } catch {}
-  try {
-    const u = await apiGet('/api/users.php');
-    if (u && u.ok && Array.isArray(u.users)){
-      window.USERS_CACHE = u.users;
-    }
-  } catch {}
-  return true;
+  // Only preload users if session exists
+  if (hasSession){
+    try {
+      const u = await apiGet('/api/users.php');
+      if (u && u.ok && Array.isArray(u.users)){
+        window.USERS_CACHE = u.users;
+      }
+    } catch {}
+  }
+  return hasSession;
 }
 
 function setView(loggedIn) {
