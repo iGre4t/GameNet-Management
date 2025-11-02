@@ -1,0 +1,15 @@
+-- Run this in phpMyAdmin (cPanel) to create the schema
+CREATE TABLE IF NOT EXISTS users (
+  id VARCHAR(64) PRIMARY KEY,
+  code VARCHAR(10) UNIQUE,
+  first VARCHAR(100),
+  last VARCHAR(100),
+  phone VARCHAR(20) UNIQUE,
+  email VARCHAR(190) UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  permissions_json TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+

@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>پنل مدیریت</title>
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+  </head>
+  <body>
+    <!-- Login View -->
+    <main id="login-view" class="view hidden">
+      <section class="auth-card">
+        <div class="brand">
+          <div class="logo">GN</div>
+          <h1>پنل مدیریت</h1>
+          <p class="muted">ورود برای ادامه مدیریت</p>
+        </div>
+        <form id="login-form" class="form">
+          <label class="field">
+            <span>نام کاربری</span>
+            <input id="username" type="text" inputmode="text" autocomplete="username" placeholder="مثال: admin" required />
+          </label>
+          <label class="field">
+            <span>رمز عبور</span>
+            <input id="password" type="password" autocomplete="current-password" placeholder="••••" required />
+          </label>
+          <button type="submit" class="btn primary">ورود</button>
+          <p class="hint">نام کاربری: <b>admin</b> — رمز: <b>1234</b></p>
+          <p id="login-error" class="error" role="alert" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+
+    <!-- App View -->
+    <div id="app-view" class="view hidden">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="logo small">GN</div>
+          <div class="title">مدیریت</div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-tab="home" aria-current="page">
+            <span>خانه</span>
+          </button>
+          <button class="nav-item" data-tab="users">
+            <span>کاربران</span>
+          </button>
+          <button class="nav-item" data-tab="branches">
+            <span>تنظیمات شعب</span>
+          </button>
+          <button class="nav-item" data-tab="settings">
+            <span>تنظیمات</span>
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <button id="logout" class="btn ghost">خروج</button>
+        </div>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <button id="sidebarToggle" class="icon-btn" title="کوچک/بزرگ کردن سایدبار" aria-label="کوچک/بزرگ کردن سایدبار">≡</button>
+          <h2 id="page-title">خانه</h2>
+          <div class="spacer"></div>
+          <div id="live-clock" class="clock" aria-live="polite"></div>
+          <div id="user-pill" class="user-pill" aria-label="نام کاربر"></div>
+        </header>
+
+        <section id="tab-home" class="tab active">
+          <div class="cards">
+            <div class="card kpi">
+              <div class="kpi-label">تعداد کاربران</div>
+              <div class="kpi-value" id="kpi-users">0</div>
+            </div>
+            <div class="card kpi">
+              <div class="kpi-label">کاربران فعال</div>
+              <div class="kpi-value" id="kpi-active">0</div>
+            </div>
+            <div class="card kpi">
+              <div class="kpi-label">تنظیمات</div>
+              <div class="kpi-value">3</div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>خوش آمدید</h3>
+            <p class="muted">این یک نمونه ساده از پنل مدیریت راست‌چین با طراحی مدرن است.</p>
+          </div>
+        </section>
+
+        <section id="tab-users" class="tab">
+          <div class="card">
+            <div class="table-header">
+              <h3>کاربران</h3>
+              <button class="btn primary" id="add-user">افزودن کاربر</button>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>نام</th>
+                    <th>تلفن</th>
+                    <th>وضعیت</th>
+                  </tr>
+                </thead>
+                <tbody id="users-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Branch Management Tab -->
+        <section id="tab-branches" class="tab">
+          <div class="sub-layout">
+            <aside class="sub-sidebar">
+              <div class="sub-header">تنظیمات شعب</div>
+              <nav id="branch-subnav" class="sub-nav">
+                <button class="sub-item active" data-view="manage">عمومی</button>
+                <div id="branch-items"></div>
+              </nav>
+            </aside>
+            <div class="sub-content">
+              <!-- Manage view: add/list branches -->
+              <div id="branch-manage-view" class="card">
+                <div class="table-header">
+                  <h3>تنظیمات شعب</h3>
+                </div>
+                <form id="add-branch-form" class="form grid">
+                  <label class="field">
+                    <span>نام شعبه</span>
+                    <input type="text" id="branch-name" placeholder="مثلاً: شعبه مرکزی" required />
+                  </label>
+                  <div class="field">
+                    <span>&nbsp;</span>
+                    <button type="submit" class="btn primary">افزودن شعبه</button>
+                    <p id="bulk-msg" class="error hint hidden"></p>
+                  </div>
+                </form>
+                <div class="table-wrapper" style="margin-top:12px;">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>نام شعبه</th>
+                        <th>اقدامات</th>
+                      </tr>
+                    </thead>
+                    <tbody id="branches-body"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Branch page: default prices + systems list -->
+              <div id="branch-page-view" class="hidden">
+                <nav id="branch-top-tabs" class="branch-tabs">
+                  <button class="branch-tab-btn active" data-branch-tab="systems">تعرفه سیستم ها</button>
+                  <button class="branch-tab-btn" data-branch-tab="buffet">بوفه و تنقلات</button>
+                  <button class="branch-tab-btn" data-branch-tab="kitchen">آشپزخانه</button>
+                  <button class="branch-tab-btn" data-branch-tab="special">خدمات ویژه</button>
+                </nav>
+                <div id="branch-tab-systems" class="branch-tab-section"></div>
+                <div id="branch-tab-tech" class="branch-tab-section hidden">
+                  <div class="card">
+                    <h3>تنظیمات فنی شعبه</h3>
+                    <form class="form grid">
+                      <label class="field full">
+                        <span>کلید سیستم پرینتر</span>
+                        <input id="printer-system-key" type="text" placeholder="" />
+                      </label>
+                      <div class="actions" style="grid-column: 1 / -1; display:flex; gap:8px; justify-content:flex-end;">
+                        <button id="printer-settings-save" type="button" class="btn primary">ذخیره</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+                <div id="branch-tab-buffet" class="branch-tab-section hidden">
+                  <div class="card">
+                    <div class="table-header">
+                      <h3>بوفه و تنقلات</h3>
+                      <form id="buffet-cat-form" class="form" style="grid-auto-flow: column; grid-auto-columns: max-content; align-items:center; gap:8px;">
+                        <input id="buffet-cat-name" type="text" placeholder="نام دسته" />
+                        <button type="submit" class="btn">ایجاد دسته</button>
+                      </form>
+                    </div>
+                    <div class="form" style="grid-auto-flow: column; grid-auto-columns: max-content; align-items:end; gap:8px;">
+                      <label class="field" style="margin:0;">
+                        <span>نام آیتم</span>
+                        <input id="buffet-item-name" type="text" placeholder="مثلاً چیپس" />
+                      </label>
+                      <label class="field" style="margin:0;">
+                        <span>قیمت (تومان)</span>
+                        <input id="buffet-item-price" class="price-input" type="text" inputmode="numeric" placeholder="مثلاً ۲۰,۰۰۰" />
+                      </label>
+                      <label class="field" style="margin:0;">
+                        <span>دسته</span>
+                        <select id="buffet-item-cat"></select>
+                      </label>
+                      <button id="buffet-item-add" class="btn primary" type="button">افزودن آیتم</button>
+                    </div>
+                    <div class="table-wrapper" style="margin-top:12px;">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>نام</th>
+                            <th>قیمت (تومان)</th>
+                            <th>دسته</th>
+                            <th>عملیات</th>
+                          </tr>
+                        </thead>
+                        <tbody id="buffet-items-body"></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+                <div id="branch-tab-kitchen" class="branch-tab-section hidden">
+                  <div class="card">
+                    <div class="table-header">
+                      <h3>آشپزخانه</h3>
+                      <form id="kitchen-item-form" class="form" style="grid-auto-flow: column; grid-auto-columns: max-content; align-items:center; gap:8px;">

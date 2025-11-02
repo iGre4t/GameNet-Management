@@ -1,0 +1,14 @@
+Options -Indexes
+
+# Deny access to config.php explicitly
+<Files "config.php">
+  Require all denied
+</Files>
+
+# Basic hardening headers (optional)
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options nosniff
+  Header set X-Frame-Options SAMEORIGIN
+  Header set Referrer-Policy no-referrer-when-downgrade
+</IfModule>
+

@@ -11,6 +11,46 @@ const USER_DB = [
 function qs(sel, root = document) { return root.querySelector(sel); }
 function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
 
+// --- Backend detection & helpers (progressive enhancement) ---
+window.BACKEND = false;
+window.USERS_CACHE = [];
+
+async function apiGet(path){
+  const res = await fetch(path, { credentials: 'same-origin' });
+  if (!res.ok) throw new Error('http_' + res.status);
+  return await res.json();
+}
+async function apiPost(path, body){
+  const res = await fetch(path, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body||{}) });
+  if (!res.ok) throw new Error('http_' + res.status);
+  return await res.json();
+}
+async function detectBackend(){
+  try {
+    const j = await apiGet('/api/ping.php');
+    window.BACKEND = !!(j && j.ok);
+  } catch { window.BACKEND = false; }
+  return window.BACKEND;
+}
+async function ensureSessionAndPreload(){
+  if (!window.BACKEND) return false;
+  // Check session and preload users
+  try {
+    const s = await apiGet('/api/session.php');
+    if (s && s.ok && s.user){
+      try { localStorage.setItem(AUTH_KEY, 'ok'); } catch {}
+      try { localStorage.setItem(CURRENT_USER_KEY, s.user.id || 'admin'); } catch {}
+    }
+  } catch {}
+  try {
+    const u = await apiGet('/api/users.php');
+    if (u && u.ok && Array.isArray(u.users)){
+      window.USERS_CACHE = u.users;
+    }
+  } catch {}
+  return true;
+}
+
 function setView(loggedIn) {
   const login = qs('#login-view');
   const app = qs('#app-view');
@@ -60,6 +100,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const token = localStorage.getItem(AUTH_KEY);
   setView(Boolean(token));
 
+  // If backend exists, sync session and preload users, then show view if logged
+  (async () => {
+    const hasApi = await detectBackend();
+    if (hasApi){
+      await ensureSessionAndPreload();
+      const t = localStorage.getItem(AUTH_KEY);
+      if (t) {
+        setView(true);
+        try { renderUsers(); updateKpis(); } catch {}
+      }
+    }
+  })();
+
   // Login
   const form = qs('#login-form');
   form?.addEventListener('submit', (e) => {
@@ -83,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Enhanced login: capture-phase handler to support staff users
   const formX = qs('#login-form');
-  formX?.addEventListener('submit', (e) => {
+  formX?.addEventListener('submit', async (e) => {
     e.preventDefault();
     e.stopImmediatePropagation();
     const user = qs('#username').value.trim();
@@ -92,7 +145,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const saved = localStorage.getItem(PASS_KEY) || '1234';
     let ok = false;
 
-    if (user === 'admin' && pass === saved) {
+    if (window.BACKEND) {
+      try {
+        const r = await apiPost('/api/login.php', { username: user, password: pass });
+        if (r && r.ok && r.user){
+          localStorage.setItem(AUTH_KEY, 'ok');
+          try { localStorage.setItem(CURRENT_USER_KEY, r.user.id || 'admin'); } catch {}
+          // Preload users after login
+          try { const u = await apiGet('/api/users.php'); if (u && u.ok) window.USERS_CACHE = u.users || []; } catch {}
+          ok = true;
+        }
+      } catch {
+        ok = false;
+      }
+    } else if (user === 'admin' && pass === saved) {
       localStorage.setItem(AUTH_KEY, 'ok');
       try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
       ok = true;
@@ -120,9 +186,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }, true);
 
   // Logout
-  qs('#logout')?.addEventListener('click', () => {
+  qs('#logout')?.addEventListener('click', async () => {
     localStorage.removeItem(AUTH_KEY);
     try { localStorage.removeItem(CURRENT_USER_KEY); } catch {}
+    if (window.BACKEND) { try { await apiPost('/api/logout.php', {}); } catch {} }
     setView(false);
   });
 
