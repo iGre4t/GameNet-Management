@@ -50,12 +50,16 @@ try {
     $lookup = (strtolower($u) === 'admin') ? '00000' : $u;
     $find->execute([':u' => $lookup]);
     $row = $find->fetch();
-    if (!$row || !$row['active']) {
-        gn_json(['ok' => false, 'error' => 'invalid_credentials'], 401);
+    if (!$row) {
+        gn_json(['ok' => false, 'error' => 'invalid_credentials', 'reason' => 'not_found'], 401);
+        exit;
+    }
+    if (!(int)$row['active']) {
+        gn_json(['ok' => false, 'error' => 'invalid_credentials', 'reason' => 'inactive'], 401);
         exit;
     }
     if (!password_verify($p, $row['password_hash'])) {
-        gn_json(['ok' => false, 'error' => 'invalid_credentials'], 401);
+        gn_json(['ok' => false, 'error' => 'invalid_credentials', 'reason' => 'bad_password'], 401);
         exit;
     }
 
