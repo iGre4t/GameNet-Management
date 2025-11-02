@@ -36,25 +36,18 @@ try {
 
     // If username is 'admin', ensure an admin row exists (idempotent)
     if (strtolower($u) === 'admin') {
-        $exists = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE code='00000' OR email='admin@example.com'")->fetchColumn();
-        if ($exists === 0) {
-            $genId = function(){
-                if (function_exists('random_bytes')) return bin2hex(random_bytes(8));
-                if (function_exists('openssl_random_pseudo_bytes')) return bin2hex(openssl_random_pseudo_bytes(8));
-                return bin2hex(substr(str_replace(['.',' '], '', uniqid('', true)), 0, 8));
-            };
-            $ins = $pdo->prepare('INSERT INTO users (id, code, first, last, email, password_hash, active, permissions_json)
-                VALUES (?, ?, ?, ?, ?, ?, 1, ?)');
-            $ins->execute([
-                $genId(), '00000', 'Admin', 'User', 'admin@example.com',
-                password_hash('1234', PASSWORD_DEFAULT), json_encode(['tabs'=>new stdClass(), 'parts'=>new stdClass()], JSON_UNESCAPED_UNICODE)
-            ]);
-        }
+        // Insert a stable admin row with primary key 'admin' to avoid duplicates
+        $sql = "INSERT INTO users (id, code, first, last, email, password_hash, active, permissions_json)
+                VALUES ('admin', '00000', 'Admin', 'User', 'admin@example.com', :ph, 1, :perms)
+                ON DUPLICATE KEY UPDATE updated_at = NOW()";
+        $ph = password_hash('1234', PASSWORD_DEFAULT);
+        $perms = json_encode(['tabs'=>new stdClass(), 'parts'=>new stdClass()], JSON_UNESCAPED_UNICODE);
+        $pdo->prepare($sql)->execute([':ph'=>$ph, ':perms'=>$perms]);
     }
 
     // Find by code OR phone OR email (admin can use 'admin' shortcut as email)
-    $find = $pdo->prepare('SELECT * FROM users WHERE (code = :u OR phone = :u OR email = :u) LIMIT 1');
-    $lookup = (strtolower($u) === 'admin') ? 'admin@example.com' : $u;
+    $find = $pdo->prepare('SELECT * FROM users WHERE (code = :u OR phone = :u OR email = :u OR id = :u) LIMIT 1');
+    $lookup = (strtolower($u) === 'admin') ? '00000' : $u;
     $find->execute([':u' => $lookup]);
     $row = $find->fetch();
     if (!$row || !$row['active']) {
