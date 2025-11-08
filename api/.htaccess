@@ -8,11 +8,50 @@ Options -Indexes
   <FilesMatch "\.(phps|php~|php\.bak|inc|ini|env|log|txt|sql)$">
     Require all denied
   </FilesMatch>
+  # Block direct access to configuration files
+  <Files "config.php">
+    Require all denied
+  </Files>
+  <Files "config.sample.php">
+    Require all denied
+  </Files>
 </IfModule>
 <IfModule !mod_authz_core.c>
   <FilesMatch "\.(phps|php~|php\.bak|inc|ini|env|log|txt|sql)$">
     Order allow,deny
     Deny from all
   </FilesMatch>
+  <Files "config.php">
+    Order allow,deny
+    Deny from all
+  </Files>
+  <Files "config.sample.php">
+    Order allow,deny
+    Deny from all
+  </Files>
 </IfModule>
 
+# Forbid web access to internal libraries
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^lib/ - [F,L]
+  # Optionally restrict HTTP methods to a safe subset
+  RewriteCond %{REQUEST_METHOD} !^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$ [NC]
+  RewriteRule ^ - [F,L]
+</IfModule>
+
+# Security headers for API responses
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "no-referrer-when-downgrade"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+</IfModule>
+
+# Hide PHP errors in production (if using mod_php)
+<IfModule mod_php7.c>
+  php_flag display_errors Off
+</IfModule>
+<IfModule mod_php8.c>
+  php_flag display_errors Off
+</IfModule>
