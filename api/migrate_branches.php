@@ -7,10 +7,12 @@ require __DIR__ . '/lib/branches_persist.php';
 header('Content-Type: application/json; charset=utf-8');
 
 try {
+  $debug = isset($_GET['debug']);
   $pdo = db_conn();
   $hasAny = (int)$pdo->query('SELECT COUNT(*) FROM branches')->fetchColumn();
   if ($hasAny > 0 && !isset($_GET['force'])) {
-    json_out(['ok' => false, 'error' => 'Branches table is not empty. Append ?force=1 to run anyway.'], 409);
+    $payload = ['ok' => false, 'error' => 'Branches table is not empty. Append ?force=1 to run anyway.'];
+    if ($debug) { json_out($payload, 200); } else { json_out($payload, 409); }
     exit;
   }
 
@@ -23,7 +25,8 @@ try {
   }
   $data = json_decode((string)$row['data'], true);
   if (!is_array($data)){
-    json_out(['ok' => false, 'error' => 'Invalid branches JSON in app_store'], 422);
+    $payload = ['ok' => false, 'error' => 'Invalid branches JSON in app_store'];
+    if ($debug) { json_out($payload, 200); } else { json_out($payload, 422); }
     exit;
   }
 
@@ -32,6 +35,7 @@ try {
   $count = count($data);
   json_out(['ok' => true, 'migrated' => $count]);
 } catch (Throwable $e) {
-  json_out(['ok' => false, 'error' => $e->getMessage()], 500);
+  $payload = ['ok' => false, 'error' => $e->getMessage()];
+  if (isset($e->xdebug_message)) { $payload['xdebug'] = $e->xdebug_message; }
+  if (isset($_GET['debug'])) { json_out($payload, 200); } else { json_out($payload, 500); }
 }
-

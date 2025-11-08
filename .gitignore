@@ -1,0 +1,16 @@
+# Sensitive runtime config (server-side only)
+api/config.php
+
+# Composer / Node (if used in future)
+vendor/
+node_modules/
+
+# Env and logs
+.env
+.env.*
+*.log
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+
