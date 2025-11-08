@@ -29,7 +29,24 @@ services:
     depends_on:
       - mysql
 
+  api:
+    build:
+      context: ./api
+    container_name: gamenet-api
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: gamenet
+      DB_USER: gamenet
+      DB_PASS: gamenet
+    ports:
+      - "8000:80"
+    volumes:
+      - ./api:/var/www/html
+    depends_on:
+      - mysql
+
 volumes:
   mysql_data:
     driver: local
-

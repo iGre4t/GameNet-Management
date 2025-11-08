@@ -20,12 +20,19 @@
     return Array.isArray(data.data) ? data.data : [];
   }
 
+  function getUsersArrayRef(){
+    try { return USER_DB; } catch (e) { /* not a global var on window */ }
+    if (Array.isArray(window.USER_DB)) return window.USER_DB;
+    return null;
+  }
+
   async function refreshUsers(){
     try {
       const list = await loadUsers();
-      if (Array.isArray(list) && Array.isArray(window.USER_DB)){
-        window.USER_DB.length = 0;
-        list.forEach(u => window.USER_DB.push(u));
+      const target = getUsersArrayRef();
+      if (Array.isArray(list) && Array.isArray(target)){
+        target.length = 0;
+        list.forEach(u => target.push(u));
       }
       try { window.renderUsers && window.renderUsers(); } catch {}
       try { window.updateKpis && window.updateKpis(); } catch {}
@@ -104,4 +111,3 @@
     }, true);
   });
 })();
-

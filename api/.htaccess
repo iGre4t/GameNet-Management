@@ -38,6 +38,9 @@ Options -Indexes
   # Optionally restrict HTTP methods to a safe subset
   RewriteCond %{REQUEST_METHOD} !^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$ [NC]
   RewriteRule ^ - [F,L]
+  # Handle CORS preflight quickly
+  RewriteCond %{REQUEST_METHOD} =OPTIONS
+  RewriteRule ^ - [R=200,L]
 </IfModule>
 
 # Security headers for API responses
@@ -46,6 +49,9 @@ Options -Indexes
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Referrer-Policy "no-referrer-when-downgrade"
   Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+  Header always set Access-Control-Allow-Origin "*"
+  Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+  Header always set Access-Control-Allow-Methods "GET,POST,PUT,PATCH,DELETE,OPTIONS"
 </IfModule>
 
 # Hide PHP errors in production (if using mod_php)

@@ -7,6 +7,7 @@
 - Run: `docker compose up -d`
 - MySQL: `localhost:3306` (user `gamenet`, pass `gamenet`)
 - phpMyAdmin: `http://localhost:8080` (server `mysql`, user `gamenet`, pass `gamenet`)
+- API (PHP/Apache): `http://localhost:8000` (auto-loads from `api/`)
 
 **Schema**
 - Schema auto-loads from `sql/init/_schema.sql` at first start.
@@ -20,6 +21,16 @@
 - Env vars supported: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`.
 
 **Ping Test (optional)**
-- If PHP is installed: `php -S 127.0.0.1:8000 -t api`
-- Visit: `http://127.0.0.1:8000/ping.php` (expects JSON with status `ok`).
+- Option A: via Docker API container → `http://localhost:8000/ping.php`
+- Option B: local PHP → `php -S 127.0.0.1:8001 -t api` then `http://127.0.0.1:8001/ping.php`
 
+**Branches Persistence**
+- UI stores branches in `localStorage` under key `gamenet_branches`.
+- We added a bridge (`api/storage-bridge.js`) that transparently persists this key to MySQL via `api/store.php` and table `app_store`.
+- No UI changes needed; all branch edits now save to the DB.
+
+**Migration (old JSON → normalized tables)**
+- If you previously had branches stored in `app_store` as JSON, run once:
+  - With Docker: open `http://localhost:8000/migrate_branches.php`
+  - It will migrate only if `branches` table is empty. To force: `http://localhost:8000/migrate_branches.php?force=1`
+- After migration, data is served from normalized tables via `api/store.php?key=branches`.
