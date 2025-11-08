@@ -3,11 +3,14 @@
   const AUTH_KEY = 'gamenet_auth';
   const PASS_KEY = 'gamenet_admin_password';
   const CURRENT_USER_KEY = 'gamenet_current_user_id';
-  const API_BASE = (window.GAMENET_API || '').replace(/\/$/, '') || (location.port === '8000' ? '' : 'http://localhost:8000');
+  // Prefer same-origin by default; allow override via window.GAMENET_API
+  const API_BASE = (typeof window !== 'undefined' && typeof window.GAMENET_API !== 'undefined')
+    ? String(window.GAMENET_API || '').replace(/\/$/, '')
+    : '';
   const $ = (sel, root = document) => root.querySelector(sel);
 
   async function apiFetch(path, opts = {}){
-    const base = API_BASE;
+    const base = `${API_BASE}/api`;
     const res = await fetch(`${base}/${path}`, Object.assign({
       headers: { 'Content-Type': 'application/json' }
     }, opts));
