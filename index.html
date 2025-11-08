@@ -6,7 +6,7 @@
     <title>پنل مدیریت</title>
     <meta name="color-scheme" content="light" />
     <link rel="icon" href="data:," />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="styles.css?v=20241108" />
     <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
   </head>
   <body>
@@ -488,11 +488,14 @@
     <!-- Undo Toast -->
     <div id="undo-toast" class="toast hidden" role="status" aria-live="polite"></div>
 
+    <!-- Set API base if deploying under a subpath; examples:
+         same-origin root: ''  subpath '/panel'  full origin 'https://example.com/panel' -->
+    <script>window.GAMENET_API = window.GAMENET_API || '';</script>
     <!-- Persist branches to DB by bridging localStorage -->
-    <script src="api/storage-bridge.js"></script>
-    <script src="branches.js"></script>
-    <script src="api/client.js"></script>
-    <script src="app.js"></script>
-    <script src="icons-profile.js"></script>
+    <script src="api/storage-bridge.js?v=20241108"></script>
+    <script src="branches.js?v=20241108"></script>
+    <script src="api/client.js?v=20241108"></script>
+    <script src="app.js?v=20241108"></script>
+    <script src="icons-profile.js?v=20241108"></script>
   </body>
   </html>

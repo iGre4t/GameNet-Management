@@ -5,7 +5,7 @@
   const API_BASE = (typeof window !== 'undefined' && typeof window.GAMENET_API !== 'undefined')
     ? String(window.GAMENET_API || '').replace(/\/$/, '')
     : '';
-  const API = `${API_BASE}/api/store.php`;
+  const API = API_BASE ? `${API_BASE}/api/store.php` : 'api/store.php';
   const original = {
     getItem: localStorage.getItem.bind(localStorage),
     setItem: localStorage.setItem.bind(localStorage),

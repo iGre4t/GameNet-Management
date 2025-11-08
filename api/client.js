@@ -10,7 +10,7 @@
   const $ = (sel, root = document) => root.querySelector(sel);
 
   async function apiFetch(path, opts = {}){
-    const base = `${API_BASE}/api`;
+    const base = API_BASE ? `${API_BASE}/api` : 'api';
     const res = await fetch(`${base}/${path}`, Object.assign({
       headers: { 'Content-Type': 'application/json' }
     }, opts));
