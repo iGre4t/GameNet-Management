@@ -1,0 +1,40 @@
+## Security hardening for public web root
+
+# 1) Disable directory listing
+Options -Indexes
+
+# 2) Block access to sensitive file types (allow robots.txt explicitly)
+<IfModule mod_authz_core.c>
+  <FilesMatch "\.(sql|sqlite|sqlite3|bak|backup|old|orig|log|ini|env|conf|config|yml|yaml|toml|lock|diff|patch|txt)$">
+    Require all denied
+  </FilesMatch>
+  <Files "robots.txt">
+    Require all granted
+  </Files>
+  # Block hidden files (dotfiles) such as .gitignore, .env, etc.
+  <FilesMatch "^\.(.*)$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+
+# Fallback for Apache 2.2 and mod_access_compat
+<IfModule !mod_authz_core.c>
+  <FilesMatch "\.(sql|sqlite|sqlite3|bak|backup|old|orig|log|ini|env|conf|config|yml|yaml|toml|lock|diff|patch|txt)$">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+  <Files "robots.txt">
+    Allow from all
+  </Files>
+  <FilesMatch "^\.(.*)$">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>
+
+# 3) Forbid common private directories if present
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^(?:\.git|\.svn|node_modules|vendor)/ - [F,L]
+</IfModule>
+

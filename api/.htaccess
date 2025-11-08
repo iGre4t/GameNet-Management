@@ -1,0 +1,18 @@
+## API directory safeguards
+
+# Prevent directory listing
+Options -Indexes
+
+# Deny direct access to non-executable and sensitive files inside api/
+<IfModule mod_authz_core.c>
+  <FilesMatch "\.(phps|php~|php\.bak|inc|ini|env|log|txt|sql)$">
+    Require all denied
+  </FilesMatch>
+</IfModule>
+<IfModule !mod_authz_core.c>
+  <FilesMatch "\.(phps|php~|php\.bak|inc|ini|env|log|txt|sql)$">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+</IfModule>
+
