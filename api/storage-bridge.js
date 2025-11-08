@@ -1,7 +1,8 @@
 // Bridge localStorage for branches to database via API
 (function(){
   const KEY = 'gamenet_branches';
-  const API = 'api/store.php';
+  const API_BASE = (window.GAMENET_API || '').replace(/\/$/, '') || (location.port === '8000' ? '' : 'http://localhost:8000');
+  const API = `${API_BASE}/api/store.php`;
   const original = {
     getItem: localStorage.getItem.bind(localStorage),
     setItem: localStorage.setItem.bind(localStorage),
@@ -54,4 +55,3 @@
     return undefined;
   };
 })();
-
