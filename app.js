@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try { renderUserPill(); } catch {}
       try { if (typeof renderProfileBox === 'function') renderProfileBox(); } catch {}
     } else {
-      if (err) err.textContent = '???? ?????? ???. ???? ??????? ?? ????? ????.';
+      if (err) err.textContent = 'نام کاربری یا گذرواژه شما اشتباه است';
     }
   }, true);
 

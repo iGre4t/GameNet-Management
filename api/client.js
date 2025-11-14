@@ -151,6 +151,8 @@
   }
 
   function attachLoginHandler() {
+    // Login is now handled in app.js (DB-backed)
+    return;
     const form = $('#login-form');
     if (!form) return;
 
