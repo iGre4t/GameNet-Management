@@ -6,7 +6,7 @@
 
   // Prefer same-origin by default; allow override via window.GAMENET_API
   const API_BASE =
-    (typeof window !== 'undefined' && typeof window.GAMENET_API !== 'undefined')
+    typeof window !== 'undefined' && typeof window.GAMENET_API !== 'undefined'
       ? String(window.GAMENET_API || '').replace(/\/$/, '')
       : '';
 
@@ -42,6 +42,8 @@
 
   function getUsersArrayRef() {
     try {
+      // In-memory demo users from app.js
+      // eslint-disable-next-line no-undef
       return USER_DB;
     } catch {
       /* not a global var */
@@ -56,20 +58,35 @@
     try {
       const list = await loadUsersFromApi();
 
+      // Sync in-memory USER_DB (if present)
       const target = getUsersArrayRef();
       if (Array.isArray(list) && Array.isArray(target)) {
         target.length = 0;
         list.forEach((u) => target.push(u));
       }
 
+      // Sync localStorage-backed users used by app.js permissions/roles
       try {
         if (typeof window.saveUsers === 'function') {
+          const existing =
+            typeof window.loadUsers === 'function' ? window.loadUsers() : [];
+
           const mapped = Array.isArray(list)
             ? list.map((u) => {
                 const full = String((u && u.name) || '').trim();
                 const parts = full.split(/\s+/, 2);
                 const first = parts[0] || '';
                 const last = parts[1] || '';
+                const prev =
+                  Array.isArray(existing) &&
+                  existing.find(
+                    (x) => String(x && x.id) === String(u && u.id)
+                  );
+                const type = prev && prev.type ? prev.type : 'employee';
+                const perms =
+                  prev && prev.permissions && typeof prev.permissions === 'object'
+                    ? prev.permissions
+                    : { tabs: {}, parts: {} };
                 return {
                   id: String(u.id),
                   code: u.code || '',
@@ -79,8 +96,8 @@
                   password: '',
                   active: !!u.active,
                   email: u.email || '',
-                  type: 'employee',
-                  permissions: { tabs: {}, parts: {} }
+                  type,
+                  permissions: perms
                 };
               })
             : [];
@@ -126,6 +143,13 @@
     });
   }
 
+  async function updateUser(payload) {
+    return apiFetch('users.php', {
+      method: 'PATCH',
+      body: JSON.stringify(payload)
+    });
+  }
+
   function attachLoginHandler() {
     const form = $('#login-form');
     if (!form) return;
@@ -137,8 +161,10 @@
           e.preventDefault();
           e.stopImmediatePropagation();
 
-          const user = $('#username').value.trim();
-          const pass = $('#password').value;
+          const userEl = $('#username');
+          const passEl = $('#password');
+          const user = userEl ? userEl.value.trim() : '';
+          const pass = passEl ? passEl.value : '';
           const saved = localStorage.getItem(PASS_KEY) || '1234';
           const err = $('#login-error');
 
@@ -155,8 +181,9 @@
               window.renderUserPill && window.renderUserPill();
             } catch {}
             try {
-              if (typeof window.renderProfileBox === 'function')
+              if (typeof window.renderProfileBox === 'function') {
                 window.renderProfileBox();
+              }
             } catch {}
             await refreshUsers();
             return;
@@ -183,8 +210,9 @@
               window.renderUserPill && window.renderUserPill();
             } catch {}
             try {
-              if (typeof window.renderProfileBox === 'function')
+              if (typeof window.renderProfileBox === 'function') {
                 window.renderProfileBox();
+              }
             } catch {}
             await refreshUsers();
             return;
@@ -195,7 +223,7 @@
           const err = $('#login-error');
           if (err) {
             err.textContent =
-              'ورود ناموفق بود. لطفاً نام‌کاربری/تلفن و رمز عبور را بررسی کنید.';
+              'نام کاربری یا پسورد اشتباه است. لطفا دوباره تلاش کنید.';
           }
         }
       },
@@ -221,6 +249,13 @@
           const passEl = $('#user-pass');
           const typeEl = $('#user-type');
 
+          const currentId =
+            typeof window.CURRENT_EDIT_USER !== 'undefined' &&
+            window.CURRENT_EDIT_USER
+              ? String(window.CURRENT_EDIT_USER)
+              : '';
+          const isEdit = !!currentId;
+
           // Enforce numeric-only, max 11 digits for phone as the user types
           if (phoneEl && !phoneEl.dataset.enforceDigits) {
             phoneEl.dataset.enforceDigits = '1';
@@ -241,26 +276,29 @@
 
           if (!first || !last) {
             msg &&
-              (msg.textContent =
-                'نام و نام خانوادگی را کامل وارد کنید.');
+              (msg.textContent = 'نام و نام خانوادگی الزامی است.');
             return;
           }
           if (!/^\d{11}$/.test(phone)) {
             msg &&
               (msg.textContent =
-                'تلفن/نام‌کاربری باید دقیقاً ۱۱ رقم (فقط عدد) باشد.');
+                'شماره موبایل باید ۱۱ رقم و فقط عدد باشد.');
             return;
           }
           if (!/^\d{5}$/.test(code)) {
             msg &&
-              (msg.textContent =
-                'کد کاربری باید دقیقاً ۵ رقم عددی باشد.');
+              (msg.textContent = 'کد پرسنلی باید ۵ رقم باشد.');
             return;
           }
-          if (!pass || pass.length < 4) {
+          if (pass && pass.length < 4) {
             msg &&
               (msg.textContent =
-                'رمز عبور باید حداقل ۴ کاراکتر باشد.');
+                'رمز عبور حداقل باید ۴ کاراکتر باشد.');
+            return;
+          }
+          if (!isEdit && !pass) {
+            msg &&
+              (msg.textContent = 'رمز عبور برای کاربر جدید الزامی است.');
             return;
           }
 
@@ -270,28 +308,44 @@
               const remoteList = await loadUsersFromApi();
               if (
                 Array.isArray(remoteList) &&
-                remoteList.some(
-                  (u) => String((u && u.phone) || '') === phone
-                )
+                remoteList.some((u) => {
+                  const samePhone =
+                    String((u && u.phone) || '') === String(phone);
+                  const sameUser =
+                    isEdit && String(u && u.id) === String(currentId);
+                  return samePhone && !sameUser;
+                })
               ) {
                 msg &&
                   (msg.textContent =
-                    'کاربری با این شماره تلفن قبلاً در سیستم ثبت شده است.');
+                    'این شماره تلفن قبلا در سیستم ثبت شده است.');
                 return;
               }
             }
           } catch {
-            // If API is unavailable, fall back to server-side duplicate handling on createUser()
+            // If API is unavailable, fall back to server-side duplicate handling on create/update
           }
 
           const fullName = `${first} ${last}`.trim();
 
-          const out = await createUser({
-            name: fullName,
-            phone,
-            password: pass,
-            code
-          });
+          let out = null;
+          if (isEdit) {
+            const payload = {
+              id: currentId,
+              name: fullName,
+              phone,
+              code
+            };
+            if (pass) payload.password = pass;
+            out = await updateUser(payload);
+          } else {
+            out = await createUser({
+              name: fullName,
+              phone,
+              password: pass,
+              code
+            });
+          }
 
           // Mirror into localStorage-backed users so the panel shows it immediately
           try {
@@ -299,27 +353,47 @@
               typeof window.loadUsers === 'function' &&
               typeof window.saveUsers === 'function'
             ) {
-              const arr = window.loadUsers();
+              const arr = window.loadUsers() || [];
               if (Array.isArray(arr)) {
-                const newId =
-                  out && typeof out.id !== 'undefined'
-                    ? String(out.id)
-                    : typeof window.genId === 'function'
-                    ? window.genId()
-                    : phone;
+                if (isEdit) {
+                  const idx = arr.findIndex(
+                    (u) => String(u && u.id) === String(currentId)
+                  );
+                  if (idx !== -1) {
+                    const old = arr[idx] || {};
+                    const updated = Object.assign({}, old, {
+                      code,
+                      first,
+                      last,
+                      phone,
+                      type
+                    });
+                    if (pass) {
+                      updated.password = pass;
+                    }
+                    arr[idx] = updated;
+                  }
+                } else {
+                  const newId =
+                    out && typeof out.id !== 'undefined'
+                      ? String(out.id)
+                      : typeof window.genId === 'function'
+                      ? window.genId()
+                      : phone;
 
-                arr.push({
-                  id: newId,
-                  code,
-                  first,
-                  last,
-                  phone,
-                  password: pass,
-                  active: true,
-                  email: '',
-                  type,
-                  permissions: { tabs: {}, parts: {} }
-                });
+                  arr.push({
+                    id: newId,
+                    code,
+                    first,
+                    last,
+                    phone,
+                    password: pass,
+                    active: true,
+                    email: '',
+                    type,
+                    permissions: { tabs: {}, parts: {} }
+                  });
+                }
                 window.saveUsers(arr);
               }
             }
@@ -341,10 +415,10 @@
             const text = String((err && err.message) || '');
             if (/Duplicate phone or email/i.test(text)) {
               msg.textContent =
-                'کاربری با این شماره تلفن قبلاً در سیستم ثبت شده است.';
+                'این شماره تلفن قبلا در سیستم ثبت شده است.';
             } else {
               msg.textContent =
-                'خطا در ذخیره کاربر. لطفاً دوباره تلاش کنید.';
+                'ثبت کاربر با خطا مواجه شد. لطفا دوباره تلاش کنید.';
             }
           }
         }
@@ -361,4 +435,3 @@
     setTimeout(attachUserFormHandler, 0);
   });
 })();
-
