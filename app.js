@@ -1,10 +1,12 @@
 ﻿const AUTH_KEY = "gamenet_auth";
-
+const PASS_KEY = "gamenet_admin_password";
 const CURRENT_USER_KEY = 'gamenet_current_user_id';
 
-// DB-backed users list (filled from API via api/client.js)
-const USER_DB = [];
-
+// Demo in-memory users
+const USER_DB = [
+  { name: "مدیر", email: "admin@example.com", active: true },
+  { name: "کاربر 1", phone: "09123456789", email: "", active: true }
+];
 
 function qs(sel, root = document) { return root.querySelector(sel); }
 function qsa(sel, root = document) { return [...root.querySelectorAll(sel)]; }
@@ -25,28 +27,6 @@ function setView(loggedIn) {
   }
 }
 
-// Current user helper using DB-backed USER_DB
-function getCurrentUser(){
-  try {
-    const id = localStorage.getItem(CURRENT_USER_KEY);
-    if (!id) return null;
-    if (Array.isArray(USER_DB)) {
-      return USER_DB.find(u => String(u.id) === String(id)) || null;
-    }
-    return null;
-  } catch { return null; }
-}
-
-// Show user name beside the clock in header
-function renderUserPill(){
-  const el = qs('#user-pill');
-  if (!el) return;
-  const u = getCurrentUser();
-  if (!u){ el.textContent = ''; return; }
-  const full = (u.name || '').trim() || (u.phone || u.email || '');
-  el.innerHTML = full ? `<span class="name">${full}</span>` : '';
-}
-
 function updateKpis() {
   const total = USER_DB.length;
   const active = USER_DB.filter(u => u.active).length;
@@ -61,7 +41,7 @@ function renderUsers() {
   // Show users that are logged in and have no email
   USER_DB.filter(u => (!u.email || u.email === '') && u.active).forEach(u => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${u.name}</td><td>${u.phone || ''}</td><td>${u.active ? '????' : '???????'}</td>`;
+    tr.innerHTML = `<td>${u.name}</td><td>${u.phone || ''}</td><td>${u.active ? 'فعال' : 'غیرفعال'}</td>`;
     tbody.appendChild(tr);
   });
 }
@@ -69,14 +49,75 @@ function renderUsers() {
 function setActiveTab(tab) {
   qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   qsa('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
-  const titles = { home: '????', users: '???????', settings: '???????' };
+  const titles = { home: 'خانه', users: 'کاربران', settings: 'تنظیمات' };
   const el = qs('#page-title');
   if (el) el.textContent = titles[tab] || '';
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Init password storage
+  if (!localStorage.getItem(PASS_KEY)) localStorage.setItem(PASS_KEY, '1234');
   const token = localStorage.getItem(AUTH_KEY);
   setView(Boolean(token));
+
+  // Login
+  const form = qs('#login-form');
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const user = qs('#username').value.trim();
+    const pass = qs('#password').value;
+    const err = qs('#login-error');
+    const saved = localStorage.getItem(PASS_KEY) || '1234';
+    if (user === 'admin' && pass === saved) {
+      localStorage.setItem(AUTH_KEY, 'ok');
+      try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
+      err.textContent = '';
+      setView(true);
+      setActiveTab('home');
+      try { renderUserPill(); } catch {}
+      try { if (typeof renderProfileBox === 'function') renderProfileBox(); } catch {}
+    } else {
+      err.textContent = 'ورود ناموفق بود. لطفا اطلاعات را بررسی کنید.';
+    }
+  });
+
+  // Enhanced login: capture-phase handler to support staff users
+  const formX = qs('#login-form');
+  formX?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const user = qs('#username').value.trim();
+    const pass = qs('#password').value;
+    const err = qs('#login-error');
+    const saved = localStorage.getItem(PASS_KEY) || '1234';
+    let ok = false;
+
+    if (user === 'admin' && pass === saved) {
+      localStorage.setItem(AUTH_KEY, 'ok');
+      try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
+      ok = true;
+    } else {
+      try {
+        const users = (typeof loadUsers === 'function') ? loadUsers().filter(u => !u.email) : [];
+        const found = users.find(u => (u.phone === user) || (u.code === user));
+        if (found && found.active && (String(found.password || '') === String(pass))) {
+          localStorage.setItem(AUTH_KEY, 'ok');
+          try { localStorage.setItem(CURRENT_USER_KEY, found.id); } catch {}
+          ok = true;
+        }
+      } catch {}
+    }
+
+    if (ok) {
+      if (err) err.textContent = '';
+      setView(true);
+      setActiveTab('home');
+      try { renderUserPill(); } catch {}
+      try { if (typeof renderProfileBox === 'function') renderProfileBox(); } catch {}
+    } else {
+      if (err) err.textContent = '???? ?????? ???. ???? ??????? ?? ????? ????.';
+    }
+  }, true);
 
   // Logout
   qs('#logout')?.addEventListener('click', () => {
@@ -106,8 +147,8 @@ document.addEventListener('DOMContentLoaded', () => {
       day: 'numeric',
       timeZone: tz
     }).formatToParts(now).reduce((acc, p) => { acc[p.type] = p.value; return acc; }, {});
-    // RTL-friendly order: weekday? day month year
-    const dateFa = `${parts.weekday}? ${parts.day} ${parts.month} ${parts.year}`;
+    // RTL-friendly order: weekday، day month year
+    const dateFa = `${parts.weekday}، ${parts.day} ${parts.month} ${parts.year}`;
     el.innerHTML = `<span class="time">${time}</span><span class="date">${dateFa}</span>`;
   }
   renderClock();
@@ -145,15 +186,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const pass = qs('#user-pass').value;
     const msg = qs('#user-form-msg');
     if (!/^\d{11}$/.test(phone)) {
-      msg.textContent = '????? ???? ???? ?? ??? ????.';
+      msg.textContent = 'شماره تلفن باید ۱۱ رقم باشد.';
       return;
     }
     if (!pass || pass.length < 4) {
-      msg.textContent = '??? ????? ? ??????? ????.';
+      msg.textContent = 'رمز حداقل ۴ کاراکتر باشد.';
       return;
     }
-    // Actual user creation is handled via API in api/client.js
+    const idx = USER_DB.length + 1;
+    USER_DB.push({ name: `کاربر ${idx}`, phone, email: "", password: pass, active: true });
+    renderUsers();
+    updateKpis();
     closeUserModal();
+  });
+
+  // Privacy: change admin password
+  qs('#privacy-form')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const cur = qs('#current-pass').value;
+    const np = qs('#new-pass').value;
+    const cp = qs('#confirm-pass').value;
+    const msg = qs('#privacy-msg');
+    const saved = localStorage.getItem(PASS_KEY) || '1234';
+    if (cur !== saved) {
+      msg.textContent = 'رمز فعلی نادرست است.';
+      return;
+    }
+    if (np.length < 4) {
+      msg.textContent = 'رمز جدید حداقل ۴ کاراکتر باشد.';
+      return;
+    }
+    if (np !== cp) {
+      msg.textContent = 'تکرار رمز جدید یکسان نیست.';
+      return;
+    }
+    localStorage.setItem(PASS_KEY, np);
+    msg.textContent = 'رمز با موفقیت به‌روزرسانی شد.';
   });
 });
 
@@ -228,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function showAnnUndoToast(text){
     ensureAnnUndoWiring();
     const t = getAnnToastEl();
-    t.innerHTML = `${text} <button id="ann-undo-action" class="link" type="button">?????????</button> <span class="hint">?? Ctrl+Z</span>`;
+    t.innerHTML = `${text} <button id="ann-undo-action" class="link" type="button">بازگردانی</button> <span class="hint">یا Ctrl+Z</span>`;
     t.classList.remove('hidden');
     t.classList.remove('leaving');
     if (ANN_UNDO_TIMER) { clearTimeout(ANN_UNDO_TIMER); ANN_UNDO_TIMER = null; }
@@ -319,8 +387,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = 'card';
       card.id = 'home-announcements-card';
-      card.innerHTML = '<h3>??????????</h3><div id="home-announcements" class="ann-list"></div>';
-      card.innerHTML = '<h3>??????????</h3><div id=\"home-announcements\" class=\"ann-list\"></div>';
+      card.innerHTML = '<h3>اعلانیه‌ها</h3><div id="home-announcements" class="ann-list"></div>';
+      card.innerHTML = '<h3>اعلانیه‌ها</h3><div id=\"home-announcements\" class=\"ann-list\"></div>';
       home.appendChild(card);
     }
   }
@@ -332,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
     wrap.innerHTML = '';
     const list = loadAnnouncements().slice().sort((a,b)=>b.ts-a.ts);
     if (!list.length){
-      const p = document.createElement('p'); p.className = 'ann-empty'; p.textContent = '????? ?????????? ??? ???? ???.'; wrap.appendChild(p); return;
+      const p = document.createElement('p'); p.className = 'ann-empty'; p.textContent = 'فعلاً اعلانیه‌ای ثبت نشده است.'; wrap.appendChild(p); return;
     }
     list.forEach(a => {
       const item = document.createElement('div'); item.className = 'ann-item';
@@ -341,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const body = document.createElement('div'); body.className = 'ann-body'; body.innerHTML = a.html || '';
       const meta = document.createElement('div'); meta.className = 'ann-meta';
       const sender = a.byName || '';
-      meta.textContent = sender ? `????? ????: ${sender}` : '';
+      meta.textContent = sender ? `ارسال توسط: ${sender}` : '';
       item.appendChild(head); item.appendChild(body); if (sender) item.appendChild(meta); wrap.appendChild(item);
     });
   }
@@ -352,18 +420,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const list = loadAnnouncements().slice().sort((a,b)=>b.ts-a.ts);
     listWrap.innerHTML = '';
     if (!list.length){
-      const p = document.createElement('p'); p.className = 'ann-empty'; p.textContent = '????? ?????????? ??? ???? ???.'; listWrap.appendChild(p); return;
+      const p = document.createElement('p'); p.className = 'ann-empty'; p.textContent = 'فعلاً اعلانیه‌ای ثبت نشده است.'; listWrap.appendChild(p); return;
     }
     list.forEach(a => {
       const row = document.createElement('div'); row.className = 'ann-row'; row.setAttribute('data-id', a.id);
       const icon = document.createElement('i'); icon.className = `${a.icon||'ri-megaphone-line'} icon`; row.appendChild(icon);
       const info = document.createElement('div'); info.className = 'grow';
       const t = document.createElement('div'); t.className = 'title'; t.textContent = a.title || '';
-      const m = document.createElement('div'); m.className = 'meta'; m.textContent = (a.byName? `????? ????: ${a.byName}`: '');
+      const m = document.createElement('div'); m.className = 'meta'; m.textContent = (a.byName? `ارسال توسط: ${a.byName}`: '');
       info.appendChild(t); if (a.byName) info.appendChild(m); row.appendChild(info);
       const actions = document.createElement('div'); actions.className = 'actions';
-      const be = document.createElement('button'); be.className = 'btn'; be.textContent = '??????'; be.addEventListener('click', () => beginEditAnnouncement(a.id));
-      const bd = document.createElement('button'); bd.className = 'btn danger'; bd.textContent = '???'; bd.addEventListener('click', () => deleteAnnouncement(a.id));
+      const be = document.createElement('button'); be.className = 'btn'; be.textContent = 'ویرایش'; be.addEventListener('click', () => beginEditAnnouncement(a.id));
+      const bd = document.createElement('button'); bd.className = 'btn danger'; bd.textContent = 'حذف'; bd.addEventListener('click', () => deleteAnnouncement(a.id));
       actions.appendChild(be); actions.appendChild(bd); row.appendChild(actions);
       listWrap.appendChild(row);
     });
@@ -377,7 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
     wrap.innerHTML = '';
     const list = loadAnnouncements().slice().sort((a,b)=>b.ts-a.ts);
     if (!list.length){
-      wrap.innerHTML = '<p class="ann-empty">????? ?????????? ??? ???? ???.</p>';
+      wrap.innerHTML = '<p class="ann-empty">فعلاً اعلانیه‌ای ثبت نشده است.</p>';
       return;
     }
     list.forEach(a => {
@@ -387,7 +455,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const body = document.createElement('div'); body.className = 'ann-body'; body.innerHTML = a.html || '';
       const meta = document.createElement('div'); meta.className = 'ann-meta';
       const sender = a.byName || '';
-      meta.textContent = sender ? `????? ????: ${sender}` : '';
+      meta.textContent = sender ? `ارسال توسط: ${sender}` : '';
       item.appendChild(head); item.appendChild(body); if (sender) item.appendChild(meta); wrap.appendChild(item);
     });
   }
@@ -400,29 +468,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const titleEl = sec.querySelector('#ann-title'); if (titleEl) titleEl.value = item.title || '';
     const iconSel = sec.querySelector('#ann-icon'); if (iconSel) { iconSel.value = item.icon || 'ri-megaphone-line'; const iconPrev = sec.querySelector('#ann-icon-preview'); if (iconPrev) iconPrev.className = (item.icon || 'ri-megaphone-line') + ' icon'; }
     const editor = sec.querySelector('#ann-editor'); if (editor) editor.innerHTML = item.html || '';
-    const submitBtn = sec.querySelector('#ann-submit') || sec.querySelector('.modal-actions button[type="submit"]'); if (submitBtn) submitBtn.textContent = '?????';
+    const submitBtn = sec.querySelector('#ann-submit') || sec.querySelector('.modal-actions button[type="submit"]'); if (submitBtn) submitBtn.textContent = 'ذخیره';
     let cancelBtn = sec.querySelector('#ann-cancel');
     if (!cancelBtn){
       const actions = sec.querySelector('.modal-actions');
-      if (actions){ cancelBtn = document.createElement('button'); cancelBtn.id='ann-cancel'; cancelBtn.type='button'; cancelBtn.className='btn'; cancelBtn.textContent='???'; actions.appendChild(cancelBtn); cancelBtn.addEventListener('click', cancelEditAnnouncement); }
+      if (actions){ cancelBtn = document.createElement('button'); cancelBtn.id='ann-cancel'; cancelBtn.type='button'; cancelBtn.className='btn'; cancelBtn.textContent='لغو'; actions.appendChild(cancelBtn); cancelBtn.addEventListener('click', cancelEditAnnouncement); }
     } else { cancelBtn.classList.remove('hidden'); }
   }
 
   function cancelEditAnnouncement(){
     const sec = document.getElementById('tab-announce'); if (!sec) return;
     CURRENT_EDIT_ANN_ID = null;
-    const submitBtn = sec.querySelector('#ann-submit') || sec.querySelector('.modal-actions button[type="submit"]'); if (submitBtn) submitBtn.textContent = '?????';
+    const submitBtn = sec.querySelector('#ann-submit') || sec.querySelector('.modal-actions button[type="submit"]'); if (submitBtn) submitBtn.textContent = 'ارسال';
     const cancelBtn = sec.querySelector('#ann-cancel'); if (cancelBtn) cancelBtn.classList.add('hidden');
   }
 
   function deleteAnnouncement(id){
     const list = loadAnnouncements(); const idx = list.findIndex(x=>x.id===id); if (idx===-1) return;
-    confirmStyled('??? ??? ????????', () => {
+    confirmStyled('حذف این اعلانیه؟', () => {
       const removed = list[idx]; list.splice(idx,1); saveAnnouncements(list);
       renderAnnouncementsManage(); renderAnnouncementsHome();
       if (CURRENT_EDIT_ANN_ID === id) cancelEditAnnouncement();
       ANN_LAST_UNDO = { item: removed, index: idx }; const title = (removed && removed.title) ? `«${removed.title}»` : '';
-      showAnnUndoToast(`??????? ${title} ??? ?? — ???? ????????? ???? ???? ?? Ctrl+Z.`);
+      showAnnUndoToast(`اعلانیه ${title} حذف شد — برای بازگردانی کلیک کنید یا Ctrl+Z.`);
     });
   }
 
@@ -432,9 +500,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (nav && !nav.querySelector('[data-tab="announce"]')){
       const btn = document.createElement('button');
       btn.className = 'nav-item'; btn.setAttribute('data-tab','announce');
-      const span = document.createElement('span'); span.textContent = '????? ???????';
+      const span = document.createElement('span'); span.textContent = 'ارسال اعلانیه';
       btn.appendChild(span);
-      btn.addEventListener('click', () => { if (typeof setActiveTab === 'function') setActiveTab('announce'); const el = document.getElementById('page-title'); if (el) el.textContent = '????? ???????'; });
+      btn.addEventListener('click', () => { if (typeof setActiveTab === 'function') setActiveTab('announce'); const el = document.getElementById('page-title'); if (el) el.textContent = 'ارسال اعلانیه'; });
       // insert before Settings if present
       const settingsBtn = nav.querySelector('[data-tab="settings"]');
       if (settingsBtn) nav.insertBefore(btn, settingsBtn); else nav.appendChild(btn);
@@ -445,43 +513,43 @@ document.addEventListener('DOMContentLoaded', () => {
       sec.id = 'tab-announce'; sec.className = 'tab';
       sec.innerHTML = `
       <div class="card">
-        <h3>????? ???????</h3>
+        <h3>ارسال اعلانیه</h3>
         <form id="ann-form" class="form">
           <div class="grid full">
             <label class="field">
-              <span>?????</span>
-              <input id="ann-title" type="text" placeholder="?????: ??????? ???" required />
+              <span>عنوان</span>
+              <input id="ann-title" type="text" placeholder="مثلاً: اطلاعیه مهم" required />
             </label>
             <label class="field">
-              <span>????</span>
+              <span>آیکن</span>
               <div style="display:flex;align-items:center;gap:8px;">
                 <select id="ann-icon">
-                  <option value="ri-megaphone-line">??????</option>
-                  <option value="ri-notification-3-line">?????</option>
-                  <option value="ri-information-line">???????</option>
-                  <option value="ri-error-warning-line">?????</option>
-                  <option value="ri-star-smile-line">?????</option>
-                  <option value="ri-fire-line">????</option>
-                  <option value="ri-calendar-event-line">??????</option>
-                  <option value="ri-heart-2-line">???</option>
+                  <option value="ri-megaphone-line">بلندگو</option>
+                  <option value="ri-notification-3-line">اعلان</option>
+                  <option value="ri-information-line">اطلاعات</option>
+                  <option value="ri-error-warning-line">هشدار</option>
+                  <option value="ri-star-smile-line">ستاره</option>
+                  <option value="ri-fire-line">فوری</option>
+                  <option value="ri-calendar-event-line">رویداد</option>
+                  <option value="ri-heart-2-line">قلب</option>
                 </select>
                 <i id="ann-icon-preview" class="ri-megaphone-line" aria-hidden="true" style="font-size:20px;"></i>
               </div>
             </label>
           </div>
           <label class="field full">
-            <span>??? ????</span>
+            <span>متن پیام</span>
             <div class="editor-toolbar">
-              <button type="button" class="btn" data-cmd="bold" title="????? (Ctrl+B)"><i class="ri-bold"></i> ?????</button>
-              <button type="button" class="btn" data-cmd="italic" title="??"><i class="ri-italic"></i> ??</button>
-              <button type="button" class="btn" data-cmd="underline" title="?????"><i class="ri-underline"></i> ?????</button>
-              <button type="button" class="btn" data-cmd="insertUnorderedList" title="????? ?????????"><i class="ri-list-unordered"></i> ????</button>
-              <button type="button" class="btn" data-cmd="insertOrderedList" title="????? ?????????"><i class="ri-list-ordered"></i> ?????????</button>
+              <button type="button" class="btn" data-cmd="bold" title="پررنگ (Ctrl+B)"><i class="ri-bold"></i> پررنگ</button>
+              <button type="button" class="btn" data-cmd="italic" title="کج"><i class="ri-italic"></i> کج</button>
+              <button type="button" class="btn" data-cmd="underline" title="زیرخط"><i class="ri-underline"></i> زیرخط</button>
+              <button type="button" class="btn" data-cmd="insertUnorderedList" title="فهرست نشانه‌دار"><i class="ri-list-unordered"></i> لیست</button>
+              <button type="button" class="btn" data-cmd="insertOrderedList" title="فهرست شماره‌دار"><i class="ri-list-ordered"></i> شماره‌دار</button>
             </div>
-            <div id="ann-editor" class="rich-editor" contenteditable="true" role="textbox" aria-multiline="true" placeholder="???? ??? ?? ????? ???????..."></div>
+            <div id="ann-editor" class="rich-editor" contenteditable="true" role="textbox" aria-multiline="true" placeholder="پیام خود را اینجا بنویسید..."></div>
           </label>
           <div class="modal-actions">
-            <button type="submit" class="btn primary">?????</button>
+            <button type="submit" class="btn primary">ارسال</button>
           </div>
           <p id="ann-msg" class="hint"></p>
         </form>
@@ -493,19 +561,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (card && !sec.querySelector('#ann-manage')){
         const manage = document.createElement('div');
         manage.id = 'ann-manage';
-        manage.innerHTML = '<h4>??????????? ?????????</h4><div id="ann-manage-list"></div>';
+        manage.innerHTML = '<h4>اعلانیه‌های ارسال‌شده</h4><div id="ann-manage-list"></div>';
         card.appendChild(manage);
         // Replace simple list container with table layout for consistency
         if (!document.getElementById('ann-manage-body')){
           manage.innerHTML = `
-            <h4>??????????? ?????????</h4>
+            <h4>اعلانیه‌های ارسال‌شده</h4>
             <div class=\"table-wrapper\"> 
               <table>
                 <thead>
                   <tr>
-                    <th>?????</th>
-                    <th>????? ????</th>
-                    <th>??????</th>
+                    <th>عنوان</th>
+                    <th>ارسال توسط</th>
+                    <th>عملیات</th>
                   </tr>
                 </thead>
                 <tbody id=\"ann-manage-body\"></tbody>
@@ -548,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (submitBtn0) submitBtn0.id = 'ann-submit';
       if (!sec.querySelector('#ann-cancel')){
         const actions = sec.querySelector('.modal-actions');
-        if (actions){ const cancelB = document.createElement('button'); cancelB.id='ann-cancel'; cancelB.type='button'; cancelB.className='btn hidden'; cancelB.textContent='???'; actions.appendChild(cancelB); cancelB.addEventListener('click', cancelEditAnnouncement); }
+        if (actions){ const cancelB = document.createElement('button'); cancelB.id='ann-cancel'; cancelB.type='button'; cancelB.className='btn hidden'; cancelB.textContent='لغو'; actions.appendChild(cancelB); cancelB.addEventListener('click', cancelEditAnnouncement); }
       }
       // initial manage render
       renderAnnouncementsManage();
@@ -558,8 +626,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const htmlRaw = (editor && editor.innerHTML) || '';
         const msg = sec.querySelector('#ann-msg');
         const textOnly = htmlRaw.replace(/<[^>]+>/g,'').trim();
-        if (!title) { msg && (msg.textContent = '????? ?? ???? ????.'); return; }
-        if (!textOnly) { msg && (msg.textContent = '??? ???? ???? ???.'); return; }
+        if (!title) { msg && (msg.textContent = 'عنوان را وارد کنید.'); return; }
+        if (!textOnly) { msg && (msg.textContent = 'متن پیام خالی است.'); return; }
         const clean = sanitizeHtml(htmlRaw);
         const list = loadAnnouncements();
         const currentUser = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
@@ -575,8 +643,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // reset
         const tEl = sec.querySelector('#ann-title'); if (tEl) tEl.value = '';
         if (editor) editor.innerHTML = '';
-        CURRENT_EDIT_ANN_ID = null; const sb = sec.querySelector('#ann-submit') || sec.querySelector('.modal-actions button[type="submit"]'); if (sb) sb.textContent = '?????'; const cb = sec.querySelector('#ann-cancel'); if (cb) cb.classList.add('hidden');
-        if (msg) { msg.textContent = '????? ??'; setTimeout(()=> msg.textContent = '', 1500); }
+        CURRENT_EDIT_ANN_ID = null; const sb = sec.querySelector('#ann-submit') || sec.querySelector('.modal-actions button[type="submit"]'); if (sb) sb.textContent = 'ارسال'; const cb = sec.querySelector('#ann-cancel'); if (cb) cb.classList.add('hidden');
+        if (msg) { msg.textContent = 'ارسال شد'; setTimeout(()=> msg.textContent = '', 1500); }
         renderAnnouncementsHome(); renderAnnouncementsManage();
       });
     }
@@ -590,7 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.setActiveTab = function(tab){
     qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     qsa('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
-    const titles = { home: '????', users: '???????', branches: '???', settings: '???????', announce: '????? ???????' };
+    const titles = { home: 'خانه', users: 'کاربران', branches: 'شعب', settings: 'تنظیمات', announce: 'ارسال اعلانیه' };
     const el = qs('#page-title'); if (el) el.textContent = titles[tab] || '';
   };
 
@@ -604,7 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
       td.colSpan = 3; td.className = 'ann-empty';
-      td.textContent = '????? ?????????? ??? ???? ???.';
+      td.textContent = 'فعلاً اعلانیه‌ای ثبت نشده است.';
       tr.appendChild(td); tbody.appendChild(tr); return;
     }
     list.forEach(a => {
@@ -623,8 +691,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const tdAct = document.createElement('td');
       const actions = document.createElement('div'); actions.className = 'actions';
-      const be = document.createElement('button'); be.className = 'btn'; be.textContent = '??????'; be.addEventListener('click', () => beginEditAnnouncement(a.id));
-      const bd = document.createElement('button'); bd.className = 'btn danger'; bd.textContent = '???'; bd.addEventListener('click', () => deleteAnnouncement(a.id));
+      const be = document.createElement('button'); be.className = 'btn'; be.textContent = 'ویرایش'; be.addEventListener('click', () => beginEditAnnouncement(a.id));
+      const bd = document.createElement('button'); bd.className = 'btn danger'; bd.textContent = 'حذف'; bd.addEventListener('click', () => deleteAnnouncement(a.id));
       actions.appendChild(be); actions.appendChild(bd);
       // Force Persian labels using escapes to avoid encoding issues
       try { be.textContent = '\u0648\u06CC\u0631\u0627\u06CC\u0634'; bd.textContent = '\u062D\u0630\u0641'; } catch {}
@@ -654,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const STR_ZOOM = "\u0628\u0632\u0631\u06AF\u0646\u0645\u0627\u06CC\u06CC";
   const STR_CANCEL = "\u0627\u0646\u0635\u0631\u0627\u0641";
   const STR_SAVE = "\u0630\u062E\u06CC\u0631\u0647";
-  const STR_TIMEZONE = "?????? ???? ????";
+  const STR_TIMEZONE = "اختلاف ساعت محلی";
 
   function ensureStyles(){
     if (document.getElementById('dev-styles')) return;
@@ -750,7 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="form grid">
       <label class="field full">
         <span>${STR_SITE_TITLE}</span>
-        <input id="site-title" type="text" value="" placeholder="????: ?????? ??????" />
+        <input id="site-title" type="text" value="" placeholder="مثال: مدیریت گیم‌نت" />
       </label>
       <div class="field">
         <span>${STR_FAVICON}</span>
@@ -1017,20 +1085,47 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- Users & Permissions extensions ---
 const USERS_KEY = 'gamenet_users';
 const PERMISSION_TABS = {
-  home: { label: '????', parts: ['????? ???????'] },
-  users: { label: '???????', parts: ['??????', '??????', '??????', '???', '?????? ????'] },
-  branches: { label: '???', parts: ['??????', '??????/?????? ?????', '?????'] },
-  settings: { label: '???????', parts: ['??????', '?????', '????'] }
+  home: { label: 'خانه', parts: ['نمایش داشبورد'] },
+  users: { label: 'کاربران', parts: ['مشاهده', 'افزودن', 'ویرایش', 'حذف', 'ویرایش مجوز'] },
+  branches: { label: 'شعب', parts: ['مشاهده', 'افزودن/ویرایش سیستم', 'تعرفه'] },
+  settings: { label: 'تنظیمات', parts: ['مشاهده', 'امنیت', 'ظاهر'] }
 };
 
 function loadUsers(){
-  // Use DB-backed users populated into USER_DB; clear old local-only users
-  try { localStorage.removeItem(USERS_KEY); } catch {}
-  return Array.isArray(USER_DB) ? USER_DB : [];
+  try {
+    const raw = localStorage.getItem(USERS_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  const seeded = [
+    { id: 'admin', code: '00000', first: 'ادمین', last: 'سیستم', phone: '', password: '', active: true, email: 'admin@example.com', permissions: { tabs: {}, parts: {} } },
+    { id: genId(), code: genCode([]), first: 'کاربر', last: 'یک', phone: '09123456789', password: '1234', active: true, email: '', permissions: { tabs: {}, parts: {} } }
+  ];
+  saveUsers(seeded);
+  return seeded;
 }
 
 function saveUsers(arr){
-  // No-op: users are stored in MySQL now
+  localStorage.setItem(USERS_KEY, JSON.stringify(arr));
+}
+
+// Return the currently logged-in user's record (defaults to admin)
+function getCurrentUser(){
+  try {
+    const id = localStorage.getItem(CURRENT_USER_KEY) || 'admin';
+    const users = loadUsers();
+    return users.find(u => u.id === id) || users.find(u => u.id === 'admin') || null;
+  } catch { return null; }
+}
+
+// Show user full name beside the clock in header
+function renderUserPill(){
+  const el = qs('#user-pill');
+  if (!el) return;
+  const u = getCurrentUser();
+  if (!u){ el.textContent = ''; return; }
+  const full = `${u.first || ''} ${u.last || ''}`.trim() || (u.name || '');
+  // Show only full name (hide initials avatar for now)
+  el.innerHTML = `<span class="name">${full}</span>`;
 }
 
 function genId(){ return Math.random().toString(36).slice(2, 10); }
@@ -1062,15 +1157,15 @@ function renderUsers(){
   if (!tbody) return;
   tbody.innerHTML = '';
   const headRow = qs('#tab-users thead tr');
-  if (headRow){ headRow.innerHTML = '<th>?? ????</th><th>??? ? ??? ????????</th><th>????/??????????</th><th>?????</th><th>???????</th>'; }
+  if (headRow){ headRow.innerHTML = '<th>کد یکتا</th><th>نام و نام خانوادگی</th><th>تلفن/نام‌کاربری</th><th>وضعیت</th><th>اقدامات</th>'; }
   const users = loadUsers().filter(u => !u.email);
   users.forEach(u => {
     const tr = document.createElement('tr');
     const full = `${u.first || ''} ${u.last || ''}`.trim();
-    const status = u.active ? '????' : '???????';
+    const status = u.active ? 'فعال' : 'غیرفعال';
     tr.innerHTML = `<td>${u.code || ''}</td><td>${full}</td><td>${u.phone || ''}</td><td>${status}</td><td>
-      <button class="btn" data-act="edit" data-id="${u.id}">??????</button>
-      <button class="btn" data-act="perm" data-id="${u.id}">??????</button>
+      <button class="btn" data-act="edit" data-id="${u.id}">ویرایش</button>
+      <button class="btn" data-act="perm" data-id="${u.id}">مجوزها</button>
     </td>`;
     tbody.appendChild(tr);
   });
@@ -1094,35 +1189,35 @@ function ensureUserAndPermModals(){
     const card = um.querySelector('.modal-card');
     if (card){
       card.innerHTML = `
-        <h3 id="user-modal-title">?????? ?????</h3>
+        <h3 id="user-modal-title">افزودن کاربر</h3>
         <form id="user-form" class="form">
           <div class="grid full">
             <label class="field">
-              <span>???</span>
+              <span>نام</span>
               <input id="user-first" type="text" required />
             </label>
             <label class="field">
-              <span>??? ????????</span>
+              <span>نام خانوادگی</span>
               <input id="user-last" type="text" required />
             </label>
           </div>
           <div class="grid full">
             <label class="field">
-              <span>????/?????????? (11 ???)</span>
+              <span>تلفن/نام‌کاربری (11 رقم)</span>
               <input id="user-phone" type="text" inputmode="numeric" pattern="^\\d{11}$" placeholder="09xxxxxxxxx" required />
             </label>
             <label class="field">
-              <span>?? ???? (??????? ??????)</span>
+              <span>کد یکتا (غیرقابل ویرایش)</span>
               <input id="user-code" type="text" inputmode="numeric" pattern="^\\d{5}$" readonly />
             </label>
           </div>
           <label class="field">
-            <span>???????</span>
+            <span>گذرواژه</span>
             <input id="user-pass" type="password" minlength="4" placeholder="******" />
           </label>
           <div class="modal-actions">
-            <button type="button" class="btn" id="user-cancel">??????</button>
-            <button type="submit" class="btn primary" id="user-save">?????</button>
+            <button type="button" class="btn" id="user-cancel">انصراف</button>
+            <button type="submit" class="btn primary" id="user-save">ذخیره</button>
           </div>
           <p id="user-form-msg" class="hint"></p>
         </form>`;
@@ -1136,13 +1231,13 @@ function ensureUserAndPermModals(){
         const grid = document.createElement('div');
         grid.className = 'grid full';
         grid.innerHTML = `
-          <label class="field"><span>??? ?????</span>
+          <label class="field"><span>نقش کاربر</span>
             <select id="user-type">
-              <option value="manager">????? ????</option>
-              <option value="operator">?????</option>
+              <option value="manager">کاربر مدیر</option>
+              <option value="operator">متصدی</option>
             </select>
           </label>
-          <label class="field" id="operator-tools" style="display:none;"><span>???? ???? (?????)</span><button type="button" id="edit-schedule" class="btn">????? ??????</button></label>`;
+          <label class="field" id="operator-tools" style="display:none;"><span>ساعت کاری (هفتگی)</span><button type="button" id="edit-schedule" class="btn">تنظیم برنامه</button></label>`;
         // insert before password field
         const passField = qs('#user-pass')?.closest('label');
         if (passField && passField.parentElement === form){
@@ -1155,14 +1250,14 @@ function ensureUserAndPermModals(){
           const roleSelect = qs('#user-type');
           if (roleSelect) {
             roleSelect.innerHTML = [
-              '<option value="developer">????? ?????</option>',
-              '<option value="superadmin">??????</option>',
-              '<option value="deputy">?????</option>',
-              '<option value="logistics">???? ??????</option>',
-              '<option value="shareholder">???? ???</option>',
-              '<option value="accountant">???? ???</option>',
-              '<option value="technician">????????</option>',
-              '<option value="employee" selected>??????</option>'
+              '<option value="developer">توسعه دهنده</option>',
+              '<option value="superadmin">مدیرکل</option>',
+              '<option value="deputy">معاون</option>',
+              '<option value="logistics">مدیر لجستیک</option>',
+              '<option value="shareholder">سهام دار</option>',
+              '<option value="accountant">حساب دار</option>',
+              '<option value="technician">تعمیرکار</option>',
+              '<option value="employee" selected>کارمند</option>'
             ].join('');
           }
           const opTools = qs('#operator-tools'); if (opTools) opTools.remove();
@@ -1175,7 +1270,7 @@ function ensureUserAndPermModals(){
         const schBtn = qs('#edit-schedule');
         if (schBtn) {
           schBtn.disabled = true;
-          schBtn.title = '?????';
+          schBtn.title = 'بزودی';
           schBtn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
         }
       }
@@ -1188,17 +1283,17 @@ function ensureUserAndPermModals(){
     modal.setAttribute('role','dialog'); modal.setAttribute('aria-modal','true');
     modal.innerHTML = `
       <div class="modal-card large">
-        <h3 id="perm-modal-title">??????? ?????</h3>
+        <h3 id="perm-modal-title">مجوزهای کاربر</h3>
         <div class="sub-layout">
           <aside class="sub-sidebar">
-            <div class="sub-header">?????</div>
+            <div class="sub-header">تب‌ها</div>
             <nav id="perm-subnav" class="sub-nav"></nav>
           </aside>
           <div class="sub-content">
             <div id="perm-content"></div>
             <div class="modal-actions">
-              <button type="button" class="btn" id="perm-cancel">??????</button>
-              <button type="button" class="btn primary" id="perm-save">?????</button>
+              <button type="button" class="btn" id="perm-cancel">انصراف</button>
+              <button type="button" class="btn primary" id="perm-save">ذخیره</button>
             </div>
             <p id="perm-msg" class="hint"></p>
           </div>
@@ -1212,7 +1307,7 @@ function ensureUserAndPermModals(){
 function openUserModalX(id){
   const users = loadUsers();
   const isEdit = !!id; CURRENT_EDIT_USER = id || null;
-  const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? '?????? ?????' : '?????? ?????';
+  const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? 'ویرایش کاربر' : 'افزودن کاربر';
   const f = qs('#user-first'), l = qs('#user-last'), p = qs('#user-phone'), c = qs('#user-code'), pw = qs('#user-pass');
   const typeSel = qs('#user-type'); const tools = qs('#operator-tools'); if (tools) tools.style.display = 'none';
   const msg = qs('#user-form-msg'); if (msg) msg.textContent = '';
@@ -1240,9 +1335,9 @@ function onUserFormSubmitX(e){
   const pass = qs('#user-pass').value;
   const type = (qs('#user-type')?.value) || 'employee';
   const msg = qs('#user-form-msg');
-  if (!first || !last){ msg && (msg.textContent = '??? ? ??? ???????? ?????? ???.'); return; }
-  if (!/^\d{11}$/.test(phone)){ msg && (msg.textContent = '????? ???? ???? ?? ??? ????.'); return; }
-  if (!/^\d{5}$/.test(code)){ msg && (msg.textContent = '?? ???? ? ???? ????.'); return; }
+  if (!first || !last){ msg && (msg.textContent = 'نام و نام خانوادگی الزامی است.'); return; }
+  if (!/^\d{11}$/.test(phone)){ msg && (msg.textContent = 'شماره تلفن باید ۱۱ رقم باشد.'); return; }
+  if (!/^\d{5}$/.test(code)){ msg && (msg.textContent = 'کد باید ۵ رقمی باشد.'); return; }
   const users = loadUsers();
   if (CURRENT_EDIT_USER){
     const i = users.findIndex(u => u.id === CURRENT_EDIT_USER); if (i === -1) return;
@@ -1266,9 +1361,9 @@ function openPermModal(id){
     const hasTab = !!perms.tabs[key];
     pane.innerHTML = `
       <div class="perm-row">
-        <label class="chk"><input type="checkbox" id="${chkId}" ${hasTab?'checked':''}/> ?????? ?? ?? «${def.label}»</label>
+        <label class="chk"><input type="checkbox" id="${chkId}" ${hasTab?'checked':''}/> دسترسی به تب «${def.label}»</label>
         <label class="field">
-          <span>???? ??????</span>
+          <span>مجوز بخش‌ها</span>
           <select id="${selId}" multiple></select>
         </label>
       </div>`;
@@ -1302,7 +1397,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const schBtnGlobal = qs('#edit-schedule');
     if (schBtnGlobal) {
       schBtnGlobal.disabled = true;
-      schBtnGlobal.title = '?????';
+      schBtnGlobal.title = 'بزودی';
       schBtnGlobal.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); });
     }
   } catch {}
@@ -1330,21 +1425,21 @@ function ensureScheduleModal(){
   modal.innerHTML = `
     <div class="modal-card" style="max-width:640px; max-height:80vh; overflow:auto;">
       <div class="modal-head" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-        <h3 style="margin:0;">????? ???? ???? (?????)</h3>
-        <button type="button" class="icon-btn" id="sch-close" aria-label="????">×</button>
+        <h3 style="margin:0;">تنظیم ساعت کاری (هفتگی)</h3>
+        <button type="button" class="icon-btn" id="sch-close" aria-label="بستن">×</button>
       </div>
       <div class="form">
-        <label class="field"><span>????? ??????? ?? ?? ???</span>
+        <label class="field"><span>تعداد بازه‌ها در هر روز</span>
           <select id="sch-count">
-            <option value="2">2 (?? ???? ??? + ?? ???????)</option>
-            <option value="4">4 (?? ???? ??? + ?? ???????)</option>
+            <option value="2">2 (یک شیفت کار + یک استراحت)</option>
+            <option value="4">4 (دو شیفت کار + دو استراحت)</option>
           </select>
         </label>
         <div id="sch-grid" class="periods-list"></div>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn" id="sch-cancel">??????</button>
-        <button type="button" class="btn primary" id="sch-save">?????</button>
+        <button type="button" class="btn" id="sch-cancel">انصراف</button>
+        <button type="button" class="btn primary" id="sch-save">ذخیره</button>
       </div>
       <p id="sch-msg" class="hint"></p>
     </div>`;
@@ -1356,7 +1451,7 @@ function ensureScheduleModal(){
   qs('#sch-save')?.addEventListener('click', saveScheduleFromModal);
 }
 
-const DAYS_FA = ['????','??????','??????','???????','????????','???????','????'];
+const DAYS_FA = ['شنبه','یکشنبه','دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه'];
 function defaultWeeklySchedule(intervalCount){
   const n = (intervalCount === 4) ? 4 : 2;
   const emptyIntervals = (m) => Array.from({length:m}, (_,i) => ({ start: '09:00', end: i%2===0 ? '13:00' : '17:00' }));
@@ -1392,8 +1487,8 @@ function renderScheduleGrid(sched){
     for (let i=0;i<n;i++){
       const cur = day.intervals?.[i] || { start:'09:00', end:'13:00' };
       const startId = `sch-${day.day}-${i}-start`; const endId = `sch-${day.day}-${i}-end`;
-      const f1 = document.createElement('label'); f1.className = 'field'; f1.innerHTML = `<span>???? ${i+1}</span><input type="time" id="${startId}" value="${cur.start}" />`;
-      const f2 = document.createElement('label'); f2.className = 'field'; f2.innerHTML = `<span>????? ${i+1}</span><input type="time" id="${endId}" value="${cur.end}" />`;
+      const f1 = document.createElement('label'); f1.className = 'field'; f1.innerHTML = `<span>شروع ${i+1}</span><input type="time" id="${startId}" value="${cur.start}" />`;
+      const f2 = document.createElement('label'); f2.className = 'field'; f2.innerHTML = `<span>پایان ${i+1}</span><input type="time" id="${endId}" value="${cur.end}" />`;
       row.appendChild(f1); row.appendChild(f2);
     }
     item.appendChild(row); grid.appendChild(item);
@@ -1568,7 +1663,7 @@ function archiveAndRemoveUser(id){
   const users = loadUsers(); const idx = users.findIndex(u => u.id === id);
   if (idx === -1) return;
   const u = users[idx]; if (u.email) return; // don't remove admin
-  const ok = confirm(`??? ????? «${(u.first||'')+' '+(u.last||'')}»? ????? ????? ??????.`);
+  const ok = confirm(`حذف کاربر «${(u.first||'')+' '+(u.last||'')}»؟ سوابق آرشیو می‌شود.`);
   if (!ok) return;
   const arch = loadArchivedUsers(); arch.push({ ...u, archivedAt: new Date().toISOString() }); saveArchivedUsers(arch);
   users.splice(idx,1); saveUsers(users); renderUsers(); updateKpis();
@@ -1580,18 +1675,18 @@ function archiveAndRemoveUser(id){
   window.renderUsers = function(){
     const tbody = qs('#users-body'); if (!tbody) return; tbody.innerHTML = '';
     const headRow = qs('#tab-users thead tr');
-    if (headRow) headRow.innerHTML = '<th>?? ? ????</th><th>??? ? ??? ????????</th><th>????? ????</th><th>???</th><th>?????</th><th>??????</th>';
+    if (headRow) headRow.innerHTML = '<th>کد ۵ رقمی</th><th>نام و نام خانوادگی</th><th>شماره تماس</th><th>نقش</th><th>وضعیت</th><th>عملیات</th>';
     const users = loadUsers().filter(u => !u.email);
     users.forEach(u => {
       const tr = document.createElement('tr');
       const full = `${u.first || ''} ${u.last || ''}`.trim();
-      const status = u.active ? '????' : '???????';
-      const roleMap = { developer:'????? ?????', superadmin:'??????', deputy:'?????', logistics:'???? ??????', shareholder:'???? ???', accountant:'???? ???', technician:'????????', employee:'??????', manager:'??????', operator:'??????' };
-      const role = roleMap[u.type] || '??????';
+      const status = u.active ? 'فعال' : 'غیرفعال';
+      const roleMap = { developer:'توسعه دهنده', superadmin:'مدیرکل', deputy:'معاون', logistics:'مدیر لجستیک', shareholder:'سهام دار', accountant:'حساب دار', technician:'تعمیرکار', employee:'کارمند', manager:'مدیرکل', operator:'کارمند' };
+      const role = roleMap[u.type] || 'کارمند';
       tr.innerHTML = `<td>${u.code || ''}</td><td>${full}</td><td>${u.phone || ''}</td><td>${role}</td><td>${status}</td><td>
-        <button class="btn" data-act="edit" data-id="${u.id}">??????</button>
+        <button class="btn" data-act="edit" data-id="${u.id}">ویرایش</button>
         
-        <button class="btn danger" data-act="del" data-id="${u.id}">???</button>
+        <button class="btn danger" data-act="del" data-id="${u.id}">حذف</button>
       </td>`;
       tbody.appendChild(tr);
     });
@@ -1613,7 +1708,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.className = 'nav-item';
       btn.setAttribute('data-tab','stats');
       const span = document.createElement('span');
-      span.textContent = '???? ?????? ? ????????';
+      span.textContent = 'آمار مدیریت و حسابداری';
       btn.appendChild(span);
       btn.addEventListener('click', () => setActiveTab('stats'));
       const settingsBtn = nav.querySelector('[data-tab="settings"]');
@@ -1640,7 +1735,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.setActiveTab = function(tab){
     qsa('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     qsa('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
-    const titles = { home: '????', stats: '???? ?????? ? ????????', users: '???????', settings: '???????' };
+    const titles = { home: 'خانه', stats: 'آمار مدیریت و حسابداری', users: 'کاربران', settings: 'تنظیمات' };
     const el = qs('#page-title');
     if (el) el.textContent = titles[tab] || '';
   };
