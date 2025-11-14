@@ -1180,6 +1180,8 @@ function renderUsers(){
 
 // Build modals and handle user CRUD and permissions
 let CURRENT_EDIT_USER = null;
+// Expose current edit user on window so api/client.js can detect edit vs add
+try { window.CURRENT_EDIT_USER = CURRENT_EDIT_USER; } catch {}
 let CURRENT_PERM_USER = null;
 
 function ensureUserAndPermModals(){
@@ -1306,7 +1308,9 @@ function ensureUserAndPermModals(){
 
 function openUserModalX(id){
   const users = loadUsers();
-  const isEdit = !!id; CURRENT_EDIT_USER = id || null;
+  const isEdit = !!id;
+  CURRENT_EDIT_USER = id || null;
+  try { window.CURRENT_EDIT_USER = CURRENT_EDIT_USER; } catch {}
   const title = qs('#user-modal-title'); if (title) title.textContent = isEdit ? 'ویرایش کاربر' : 'افزودن کاربر';
   const f = qs('#user-first'), l = qs('#user-last'), p = qs('#user-phone'), c = qs('#user-code'), pw = qs('#user-pass');
   const typeSel = qs('#user-type'); const tools = qs('#operator-tools'); if (tools) tools.style.display = 'none';
