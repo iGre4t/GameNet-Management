@@ -1,7 +1,6 @@
 // Lightweight API client and capture-phase overrides
 (function(){
   const AUTH_KEY = 'gamenet_auth';
-  const PASS_KEY = 'gamenet_admin_password';
   const CURRENT_USER_KEY = 'gamenet_current_user_id';
   // Prefer same-origin by default; allow override via window.GAMENET_API
   const API_BASE = (typeof window !== 'undefined' && typeof window.GAMENET_API !== 'undefined')
@@ -48,7 +47,7 @@
   }
 
   window.addEventListener('DOMContentLoaded', () => {
-    // Capture login to support DB-backed staff users and admin fallback
+    // Capture login to use DB-backed users only
     const form = $('#login-form');
     form && form.addEventListener('submit', async (e) => {
       try {
@@ -56,22 +55,9 @@
         e.stopImmediatePropagation();
         const user = $('#username').value.trim();
         const pass = $('#password').value;
-        const saved = localStorage.getItem(PASS_KEY) || '1234';
         const err = $('#login-error');
 
-        if (user === 'admin' && pass === saved){
-          localStorage.setItem(AUTH_KEY, 'ok');
-          try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
-          err && (err.textContent = '');
-          window.setView && window.setView(true);
-          window.setActiveTab && window.setActiveTab('home');
-          try { window.renderUserPill && window.renderUserPill(); } catch {}
-          try { if (typeof window.renderProfileBox === 'function') window.renderProfileBox(); } catch {}
-          refreshUsers();
-          return;
-        }
-
-        // Remote authentication via API
+        // Remote authentication via API (no local admin fallback)
         const out = await apiFetch('auth.php', { method: 'POST', body: JSON.stringify({ identifier: user, password: pass }) });
         if (out && out.ok){
           localStorage.setItem(AUTH_KEY, 'ok');
