@@ -4,6 +4,7 @@ require __DIR__ . '/lib/http.php';
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
+// List users
 if ($method === 'GET') {
   try {
     $pdo = db_conn();
@@ -16,18 +17,25 @@ if ($method === 'GET') {
   exit;
 }
 
+// Create user
 if ($method === 'POST') {
   $in = read_json();
-  $name = trim($in['name'] ?? '');
-  $phone = trim($in['phone'] ?? '');
+  $name = trim((string)($in['name'] ?? ''));
+  $phone = trim((string)($in['phone'] ?? ''));
   $password = (string)($in['password'] ?? '');
-  $email = trim($in['email'] ?? '');
-  $code = trim($in['code'] ?? '');
-  if ($name === '') $name = 'کاربر جدید';
+  $email = trim((string)($in['email'] ?? ''));
+  $code = trim((string)($in['code'] ?? ''));
+
+  // When the panel does not send a name, fall back to a friendly default.
+  if ($name === '') {
+    $name = 'کاربر جدید';
+  }
+
   if ($phone === '' || strlen($password) < 4) {
     json_out(['ok' => false, 'error' => 'Invalid phone or password'], 422);
     exit;
   }
+
   try {
     $pdo = db_conn();
     $hash = password_hash($password, PASSWORD_BCRYPT);
@@ -46,24 +54,47 @@ if ($method === 'POST') {
   exit;
 }
 
+// Update user
 if ($method === 'PATCH' || $method === 'PUT') {
   $in = read_json();
   $id = (int)($in['id'] ?? 0);
-  if ($id <= 0) { json_out(['ok' => false, 'error' => 'Missing id'], 422); exit; }
+  if ($id <= 0) {
+    json_out(['ok' => false, 'error' => 'Missing id'], 422);
+    exit;
+  }
+
   $fields = [];
   $values = [];
+
   foreach ([
-    'name' => 'name',
+    'name'  => 'name',
     'phone' => 'phone',
     'email' => 'email',
-    'code' => 'code',
+    'code'  => 'code',
   ] as $k => $col) {
-    if (array_key_exists($k, $in)) { $fields[] = "$col = ?"; $values[] = ($in[$k] === '' ? null : $in[$k]); }
+    if (array_key_exists($k, $in)) {
+      $fields[] = "$col = ?";
+      $values[] = ($in[$k] === '' ? null : $in[$k]);
+    }
   }
-  if (array_key_exists('active', $in)) { $fields[] = 'active = ?'; $values[] = (int)!!$in['active']; }
-  if (array_key_exists('password', $in)) { $fields[] = 'password_hash = ?'; $values[] = password_hash((string)$in['password'], PASSWORD_BCRYPT); }
-  if (!$fields) { json_out(['ok' => false, 'error' => 'No fields to update'], 422); exit; }
+
+  if (array_key_exists('active', $in)) {
+    $fields[] = 'active = ?';
+    $values[] = (int)!!$in['active'];
+  }
+
+  if (array_key_exists('password', $in)) {
+    $fields[] = 'password_hash = ?';
+    $values[] = password_hash((string)$in['password'], PASSWORD_BCRYPT);
+  }
+
+  if (!$fields) {
+    json_out(['ok' => false, 'error' => 'No fields to update'], 422);
+    exit;
+  }
+
   $values[] = $id;
+
   try {
     $pdo = db_conn();
     $sql = 'UPDATE users SET ' . implode(', ', $fields) . ' WHERE id = ?';
@@ -76,9 +107,14 @@ if ($method === 'PATCH' || $method === 'PUT') {
   exit;
 }
 
+// Delete user
 if ($method === 'DELETE') {
   $id = (int)($_GET['id'] ?? 0);
-  if ($id <= 0) { json_out(['ok' => false, 'error' => 'Missing id'], 422); exit; }
+  if ($id <= 0) {
+    json_out(['ok' => false, 'error' => 'Missing id'], 422);
+    exit;
+  }
+
   try {
     $pdo = db_conn();
     $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
