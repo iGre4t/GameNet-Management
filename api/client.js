@@ -1,4 +1,4 @@
-// Lightweight API client and capture-phase overrides
+// Lightweight API client and capture‑phase overrides for DB users
 (function () {
   const AUTH_KEY = 'gamenet_auth';
   const PASS_KEY = 'gamenet_admin_password';
@@ -25,29 +25,29 @@
     return data;
   }
 
-  async function loadUsers() {
+  async function loadUsersFromApi() {
     const data = await apiFetch('users.php');
     return Array.isArray(data.data) ? data.data : [];
   }
 
   function getUsersArrayRef() {
-    try { return USER_DB; } catch (e) { /* not a global var on window */ }
+    try { return USER_DB; } catch (e) { /* not a global var */ }
     if (Array.isArray(window.USER_DB)) return window.USER_DB;
     return null;
   }
 
+  // Pull users from DB and push into both USER_DB (if present) and
+  // the localStorage-backed users that app.js uses for rendering.
   async function refreshUsers() {
     try {
-      const list = await loadUsers();
+      const list = await loadUsersFromApi();
 
-      // Keep legacy in-memory USER_DB in sync, if present
       const target = getUsersArrayRef();
       if (Array.isArray(list) && Array.isArray(target)) {
         target.length = 0;
         list.forEach((u) => target.push(u));
       }
 
-      // Also sync to localStorage-backed users used by app.js
       try {
         if (typeof window.saveUsers === 'function') {
           const mapped = Array.isArray(list)
@@ -93,7 +93,7 @@
       try { window.updateKpis && window.updateKpis(); } catch {}
       try { window.renderUserPill && window.renderUserPill(); } catch {}
     } catch {
-      // Ignore refresh errors; panel will continue to use local data
+      // Ignore refresh errors; panel can still work with local data
     }
   }
 
@@ -104,154 +104,163 @@
     });
   }
 
-  window.addEventListener('DOMContentLoaded', () => {
-    // Capture login to support DB-backed staff users and admin fallback
+  function attachLoginHandler() {
     const form = $('#login-form');
-    if (form) {
-      form.addEventListener('submit', async (e) => {
-        try {
-          e.preventDefault();
-          e.stopImmediatePropagation();
+    if (!form) return;
 
-          const user = $('#username').value.trim();
-          const pass = $('#password').value;
-          const saved = localStorage.getItem(PASS_KEY) || '1234';
-          const err = $('#login-error');
+    form.addEventListener('submit', async (e) => {
+      try {
+        e.preventDefault();
+        e.stopImmediatePropagation();
 
-          // Local admin login
-          if (user === 'admin' && pass === saved) {
-            localStorage.setItem(AUTH_KEY, 'ok');
-            try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
-            if (err) err.textContent = '';
-            window.setView && window.setView(true);
-            window.setActiveTab && window.setActiveTab('home');
-            try { window.renderUserPill && window.renderUserPill(); } catch {}
-            try { if (typeof window.renderProfileBox === 'function') window.renderProfileBox(); } catch {}
-            await refreshUsers();
-            return;
-          }
+        const user = $('#username').value.trim();
+        const pass = $('#password').value;
+        const saved = localStorage.getItem(PASS_KEY) || '1234';
+        const err = $('#login-error');
 
-          // Remote authentication via API (phone or code)
-          const out = await apiFetch('auth.php', {
-            method: 'POST',
-            body: JSON.stringify({ identifier: user, password: pass })
-          });
-
-          if (out && out.ok) {
-            localStorage.setItem(AUTH_KEY, 'ok');
-            try {
-              localStorage.setItem(
-                CURRENT_USER_KEY,
-                String(out.user && out.user.id || '')
-              );
-            } catch {}
-            if (err) err.textContent = '';
-            window.setView && window.setView(true);
-            window.setActiveTab && window.setActiveTab('home');
-            try { window.renderUserPill && window.renderUserPill(); } catch {}
-            try { if (typeof window.renderProfileBox === 'function') window.renderProfileBox(); } catch {}
-            await refreshUsers();
-            return;
-          }
-
-          throw new Error('Invalid credentials');
-        } catch {
-          const err = $('#login-error');
-          if (err) {
-            err.textContent = 'ورود ناموفق بود. لطفاً نام‌کاربری/تلفن و گذرواژه را بررسی کنید.';
-          }
-        }
-      }, true);
-    }
-
-    // Capture Add User modal submit to create DB-backed user
-    const uform = $('#user-form');
-    if (uform) {
-      uform.addEventListener('submit', async (e) => {
-        try {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-
-          const firstEl = $('#user-first');
-          const lastEl = $('#user-last');
-          const phoneEl = $('#user-phone');
-          const codeEl = $('#user-code');
-          const passEl = $('#user-pass');
-          const typeEl = $('#user-type');
-
-          const first = firstEl ? firstEl.value.trim() : '';
-          const last = lastEl ? lastEl.value.trim() : '';
-          const phone = phoneEl ? phoneEl.value.trim() : '';
-          const code = codeEl ? codeEl.value.trim() : '';
-          const pass = passEl ? passEl.value : '';
-          const type = typeEl ? (typeEl.value || 'employee') : 'employee';
-
-          const msg = $('#user-form-msg');
-
-          if (!first || !last) {
-            msg && (msg.textContent = 'نام و نام خانوادگی الزامی است.');
-            return;
-          }
-          if (!/^\d{11}$/.test(phone)) {
-            msg && (msg.textContent = 'تلفن/نام‌کاربری باید ۱۱ رقم باشد.');
-            return;
-          }
-          if (!/^\d{5}$/.test(code)) {
-            msg && (msg.textContent = 'کد یکتا باید ۵ رقم باشد.');
-            return;
-          }
-          if (!pass || pass.length < 4) {
-            msg && (msg.textContent = 'گذرواژه باید حداقل ۴ کاراکتر باشد.');
-            return;
-          }
-
-          const fullName = `${first} ${last}`.trim();
-
-          const out = await createUser({
-            name: fullName,
-            phone,
-            password: pass,
-            code
-          });
-
-          // Mirror into localStorage-backed users so the panel shows it immediately
-          try {
-            if (typeof window.loadUsers === 'function' && typeof window.saveUsers === 'function') {
-              const arr = window.loadUsers();
-              if (Array.isArray(arr)) {
-                const newId =
-                  (out && typeof out.id !== 'undefined')
-                    ? String(out.id)
-                    : (typeof window.genId === 'function' ? window.genId() : phone);
-
-                arr.push({
-                  id: newId,
-                  code,
-                  first,
-                  last,
-                  phone,
-                  password: pass,
-                  active: true,
-                  email: '',
-                  type,
-                  permissions: { tabs: {}, parts: {} }
-                });
-                window.saveUsers(arr);
-              }
-            }
-          } catch { /* ignore local mirror errors */ }
-
+        // Local admin login
+        if (user === 'admin' && pass === saved) {
+          localStorage.setItem(AUTH_KEY, 'ok');
+          try { localStorage.setItem(CURRENT_USER_KEY, 'admin'); } catch {}
+          if (err) err.textContent = '';
+          window.setView && window.setView(true);
+          window.setActiveTab && window.setActiveTab('home');
+          try { window.renderUserPill && window.renderUserPill(); } catch {}
+          try { if (typeof window.renderProfileBox === 'function') window.renderProfileBox(); } catch {}
           await refreshUsers();
-
-          if (msg) msg.textContent = '';
-          const modal = $('#user-modal');
-          if (modal) modal.classList.add('hidden');
-          try { uform.reset(); } catch {}
-        } catch {
-          const msg = $('#user-form-msg');
-          if (msg) msg.textContent = 'خطا در ذخیره کاربر جدید.';
+          return;
         }
-      }, true);
-    }
+
+        // Remote authentication via API (phone or code)
+        const out = await apiFetch('auth.php', {
+          method: 'POST',
+          body: JSON.stringify({ identifier: user, password: pass })
+        });
+
+        if (out && out.ok) {
+          localStorage.setItem(AUTH_KEY, 'ok');
+          try {
+            localStorage.setItem(
+              CURRENT_USER_KEY,
+              String(out.user && out.user.id || '')
+            );
+          } catch {}
+          if (err) err.textContent = '';
+          window.setView && window.setView(true);
+          window.setActiveTab && window.setActiveTab('home');
+          try { window.renderUserPill && window.renderUserPill(); } catch {}
+          try { if (typeof window.renderProfileBox === 'function') window.renderProfileBox(); } catch {}
+          await refreshUsers();
+          return;
+        }
+
+        throw new Error('Invalid credentials');
+      } catch {
+        const err = $('#login-error');
+        if (err) {
+          err.textContent = 'ورود ناموفق بود. لطفاً نام‌کاربری/تلفن و گذرواژه را بررسی کنید.';
+        }
+      }
+    }, true); // capture
+  }
+
+  function attachUserFormHandler() {
+    const form = $('#user-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+      try {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        const firstEl = $('#user-first');
+        const lastEl = $('#user-last');
+        const phoneEl = $('#user-phone');
+        const codeEl = $('#user-code');
+        const passEl = $('#user-pass');
+        const typeEl = $('#user-type');
+
+        const first = firstEl ? firstEl.value.trim() : '';
+        const last = lastEl ? lastEl.value.trim() : '';
+        const phone = phoneEl ? phoneEl.value.trim() : '';
+        const code = codeEl ? codeEl.value.trim() : '';
+        const pass = passEl ? passEl.value : '';
+        const type = typeEl ? (typeEl.value || 'employee') : 'employee';
+
+        const msg = $('#user-form-msg');
+
+        if (!first || !last) {
+          msg && (msg.textContent = 'نام و نام خانوادگی الزامی است.');
+          return;
+        }
+        if (!/^\d{11}$/.test(phone)) {
+          msg && (msg.textContent = 'تلفن/نام‌کاربری باید ۱۱ رقم باشد.');
+          return;
+        }
+        if (!/^\d{5}$/.test(code)) {
+          msg && (msg.textContent = 'کد یکتا باید ۵ رقم باشد.');
+          return;
+        }
+        if (!pass || pass.length < 4) {
+          msg && (msg.textContent = 'گذرواژه باید حداقل ۴ کاراکتر باشد.');
+          return;
+        }
+
+        const fullName = `${first} ${last}`.trim();
+
+        const out = await createUser({
+          name: fullName,
+          phone,
+          password: pass,
+          code
+        });
+
+        // Mirror into localStorage-backed users so the panel shows it immediately
+        try {
+          if (typeof window.loadUsers === 'function' && typeof window.saveUsers === 'function') {
+            const arr = window.loadUsers();
+            if (Array.isArray(arr)) {
+              const newId =
+                (out && typeof out.id !== 'undefined')
+                  ? String(out.id)
+                  : (typeof window.genId === 'function' ? window.genId() : phone);
+
+              arr.push({
+                id: newId,
+                code,
+                first,
+                last,
+                phone,
+                password: pass,
+                active: true,
+                email: '',
+                type,
+                permissions: { tabs: {}, parts: {} }
+              });
+              window.saveUsers(arr);
+            }
+          }
+        } catch { /* ignore local mirror errors */ }
+
+        await refreshUsers();
+
+        if (msg) msg.textContent = '';
+        const modal = $('#user-modal');
+        if (modal) modal.classList.add('hidden');
+        try { (e.target || form).reset(); } catch {}
+      } catch {
+        const msg = $('#user-form-msg');
+        if (msg) msg.textContent = 'خطا در ذخیره کاربر جدید.';
+      }
+    }, true); // capture
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    attachLoginHandler();
+
+    // app.js upgrades the Add User modal on DOMContentLoaded as well and
+    // replaces its innerHTML, so we delay our wiring to run afterwards.
+    setTimeout(attachUserFormHandler, 0);
   });
 })(); 
+
